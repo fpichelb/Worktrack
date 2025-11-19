@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Worktrack.Data;
 using Worktrack.Services;
 using Worktrack.Components;
+using Blazored.LocalStorage;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,6 +11,8 @@ var builder = WebApplication.CreateBuilder(args);
 // ------------------------------------------
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+builder.Services.AddBlazoredLocalStorage();
 
 // ------------------------------------------
 // ?? 2. MySQL-Datenbank konfigurieren
@@ -26,6 +29,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // ------------------------------------------
 builder.Services.AddScoped<TimeEntryService>()
                 .AddScoped<UserStatsService>()
+                .AddScoped<UserService>()
                 .AddScoped<EventService>();
  builder.Services.AddSingleton<AppState>();
 

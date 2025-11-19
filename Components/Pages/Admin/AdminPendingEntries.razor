@@ -4,20 +4,21 @@
 
 @using Microsoft.EntityFrameworkCore
 @inject AppDbContext Db
+@rendermode InteractiveServer
 
 
-<h2>Offene Zeiteintr‰ge</h2>
+<h2>Offene Zeiteintr√§ge</h2>
 
 <div class="card">
     <h3>Zuordnung ausstehend</h3>
 
     @if (Pending == null)
     {
-        <p>LadeÖ</p>
+        <p>Lade‚Ä¶</p>
     }
     else if (!Pending.Any())
     {
-        <p>Keine offenen Eintr‰ge.</p>
+        <p>Keine offenen Eintr√§ge.</p>
     }
     else
     {
@@ -40,11 +41,15 @@
                         <td>@e.Event?.Name</td>
                         <td>@(string.IsNullOrEmpty(e.Task) ? "-" : e.Task)</td>
                         <td>@e.CheckIn.Value.ToLocalTime()</td>
-                        <td>@(e.CheckOut.HasValue ? e.CheckOut.Value.ToLocalTime().ToString() : "-")</td>
+                        <td>@(e.CheckOut.HasValue? e.CheckOut.Value.ToLocalTime().ToString() : "-")</td>
                         <td>
-                            <select @onchange="(args) => AssignUser(e, args.Value?.ToString())">
-                                <option value="">-- User w‰hlen --</option>
-                                @foreach (var u in Users)
+                            <select  @onchange="(args) => AssignUser(e, args.Value?.ToString())">
+                                <option value="">-- User w√§hlen --</option>
+
+                                @{
+                                    var sortedUsers = GetSortedUsersForEntry(e);
+                                }
+                                @foreach (var u in sortedUsers)
                                 {
                                     <option value="@u.Id">@u.Name</option>
                                 }
@@ -64,15 +69,19 @@
     protected override async Task OnInitializedAsync()
     {
         Pending = await Db.TimeEntry
-            .Include(t => t.Event)
-            .Where(t => t.Status == "pending_assignment")
-            .OrderByDescending(t => t.CheckIn)
-            .ToListAsync();
+        .Include(t => t.Event)
+        .Where(t => t.Status == "pending_assignment")
+        .OrderByDescending(t => t.CheckIn)
+        .ToListAsync();
 
-        Users = await Db.Users
-            .Where(u => u.Role != "admin")
-            .OrderBy(u => u.Name)
-            .ToListAsync();
+        Users = await Db.Users.ToListAsync();
+    }
+
+    private List<User> GetSortedUsersForEntry(TimeEntry entry)
+    {
+        return Users
+        .OrderByDescending(u => GetMatchScore(entry.NameEntered, u.Name))
+        .ToList();
     }
 
     private async Task AssignUser(TimeEntry entry, string? value)
@@ -83,11 +92,70 @@
             if (user == null) return;
 
             entry.UserId = userId;
+            entry.UserName= user.Name;
             entry.Status = entry.CheckOut.HasValue ? "checked_out" : "checked_in";
 
             await Db.SaveChangesAsync();
 
             Pending?.Remove(entry);
+            StateHasChanged();
         }
     }
+
+    private int Levenshtein(string a, string b)
+    {
+        if (string.IsNullOrEmpty(a)) return b.Length;
+        if (string.IsNullOrEmpty(b)) return a.Length;
+
+        int[,] d = new int[a.Length + 1, b.Length + 1];
+
+        for (int i = 0; i <= a.Length; i++) d[i, 0] = i;
+        for (int j = 0; j <= b.Length; j++) d[0, j] = j;
+
+        for (int i = 1; i <= a.Length; i++)
+        {
+            for (int j = 1; j <= b.Length; j++)
+            {
+                int cost = (a[i - 1] == b[j - 1]) ? 0 : 1;
+
+                d[i, j] = Math.Min(
+                Math.Min(d[i - 1, j] + 1, d[i, j - 1] + 1),
+                d[i - 1, j - 1] + cost
+                );
+            }
+        }
+
+        return d[a.Length, b.Length];
+    }
+
+    private double GetMatchScore(string entered, string fullName)
+    {
+        entered = entered.ToLower();
+        fullName = fullName.ToLower();
+
+        double score = 0;
+
+        // 1. String-Distance
+        var dist = Levenshtein(entered, fullName);
+        score -= dist; // niedrig besser ‚Üí negativ nutzen
+
+        // 2. Teilstring-Bonus
+        if (fullName.Contains(entered)) score += 10;
+
+        // 3. Token-Vergleich
+        var tokens = fullName.Split(' ');
+        var enteredTokens = entered.Split(' ');
+
+        foreach (var t in enteredTokens)
+        {
+            foreach (var ft in tokens)
+            {
+                if (ft.StartsWith(t)) score += 5;
+                if (ft == t) score += 10;
+            }
+        }
+
+        return score;
+    }
+
 }

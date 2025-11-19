@@ -32,7 +32,7 @@ else
                         <td>@u.Rank</td>
                         <td>@u.Name</td>
                         <td>@u.EventsVisited</td>
-                        <td>@u.TotalHours.ToString("0.0") h</td>
+                        <td>@((u.TotalHours+u.Bonus).ToString("0.0")) h</td>
                         <td>
                             @foreach (var a in u.Achievements)
                             {
@@ -193,7 +193,8 @@ else
                 Name = u.Name,
                 TotalHours = totalHours,
                 EventsVisited = eventsVisited,
-                Achievements = achievements
+                Achievements = achievements,
+                Bonus = u.BonusHours
             });
         }
 
@@ -234,6 +235,7 @@ else
         public int UserId { get; set; }
         public string Name { get; set; } = "";
         public double Hours { get; set; }
+        
     }
 
     class GlobalUserStats
@@ -243,6 +245,7 @@ else
         public int Rank { get; set; }
         public int EventsVisited { get; set; }
         public double TotalHours { get; set; }
+        public int Bonus { get;set; } = 0;
         public List<string> Achievements { get; set; } = new();
     }
 

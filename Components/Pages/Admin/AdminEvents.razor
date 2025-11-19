@@ -47,7 +47,7 @@
 
     @if (Events == null)
     {
-        <p>Lade EventsÖ</p>
+        <p>Lade Events‚Ä¶</p>
     }
     else if (Events.Count == 0)
     {
@@ -60,8 +60,7 @@
                 <tr>
                     <th>Name</th>
                     <th>Ort</th>
-                    <th>Start-Code</th>
-                    <th>End-Code</th>
+                    <th>EventQR-Code</th>
                     <th>AutoMatch</th>
                     <th>Aktiv</th>
                     <th class="text-right">Aktionen</th>
@@ -83,7 +82,7 @@
                             <br />
                             <button class="btn btn-secondary btn-small"
                                     @onclick="() => ShowLargeQR(e.Id)">
-                                QR groﬂ
+                                QR gro√ü
                             </button>
                         </td>
                         <td>@(e.AutoMatchUsers ? "Ja" : "Nein")</td>
@@ -92,7 +91,7 @@
                             <button class="btn secondary" style="margin-right:0.5rem;" @onclick="() => ToggleActive(e)">
                                 @(e.IsActive ? "Deaktivieren" : "Aktivieren")
                             </button>
-                            <button class="btn secondary" @onclick="() => DeleteEvent(e)">Lˆschen</button>
+                            <button class="btn secondary" @onclick="() => DeleteEvent(e)">L√∂schen</button>
                         </td>
                     </tr>
                 }
@@ -101,7 +100,7 @@
     }
 </div>
 
-<!-- GROﬂES QR POPUP -->
+<!-- GRO√üES QR POPUP -->
 @if (LargeQrBase64 != null)
 {
     <div class="qr-backdrop" @onclick="CloseLargeQR">
@@ -121,7 +120,7 @@
             <button class="btn btn-secondary"
                     style="margin-top:1rem;"
                     @onclick="CloseLargeQR">
-                Schlieﬂen
+                Schlie√üen
             </button>
         </div>
     </div>

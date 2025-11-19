@@ -3,12 +3,15 @@
 @inject AppDbContext Db
 
 @inject IJSRuntime JS
+@inject Blazored.LocalStorage.ILocalStorageService localStorage
+
+@rendermode InteractiveServer
 
 
 
 @if (Loading)
 {
-    <p>Lade Daten…</p>
+    <p>Lade Daten...</p>
 }
 else if (Event == null)
 {
@@ -22,7 +25,7 @@ else
     {
         <!-- CHECK-IN FORM -->
         <div class="card">
-            <h2>@Event.Name – Check-In</h2>
+            <h2>@Event.Name - Check-In</h2>
             <p>@Event.Location</p>
 
             @if (!string.IsNullOrEmpty(Error))
@@ -32,14 +35,14 @@ else
 
             <div class="form-group">
                 <label>Name</label>
-                <input type="text" @bind="Name" class="form-control"/>
+                <input type="text" @bind="Name" class="form-control" />
             </div>
 
             @if (Event.RequireTask)
             {
                 <div class="form-group">
                     <label>Aufgabe</label>
-                    <input type="text" @bind="Task" class="form-control"/>
+                    <input type="text" @bind="Task" class="form-control" />
                 </div>
             }
 
@@ -50,7 +53,7 @@ else
     {
         <!-- CHECK-OUT -->
         <div class="card">
-            <h2>@Event.Name – Check-Out</h2>
+            <h2>@Event.Name - Check-Out</h2>
 
             <p><strong>Name:</strong> @ActiveSession.Name</p>
             <p><strong>Check-In:</strong> @ActiveSession.CheckIn.ToLocalTime()</p>
@@ -61,11 +64,12 @@ else
                 <strong>Automatisch zugeordnet:</strong>
                 @if (AutoMatched)
                 {
-                    <span style="color:green;">?</span>
+                    <span style="color:green;">Ja</span>
                 }
+                
                 else
                 {
-                    <span style="color:red;">?</span>
+                    <span style="color:red;">nein</span>
                 }
             </p>
 
@@ -88,36 +92,31 @@ else
     private double Duration;
     private bool AutoMatched;
 
-    protected override async Task Afterf()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        var uri = new Uri(Nav.Uri);
-        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
-
-        int eventId = int.Parse(query.Get("event")!);
-
-        Event = await Db.Events.FirstOrDefaultAsync(e => e.Id == eventId);
-
-        if (Event == null)
+        if (firstRender&&Loading)
         {
             Loading = false;
-            return;
-        }
+            var uri = new Uri(Nav.Uri);
+            var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
 
-        ActiveSession = await JS.InvokeAsync<LocalSession>("worktrack.getActiveEvent");
+            int eventId = int.Parse(query.Get("event")!);
+            
+            Event = await Db.Events.FirstOrDefaultAsync(e => e.Id == eventId);
 
-        if (ActiveSession != null && ActiveSession.EventId == eventId)
-        {
-            // It is checkout now
-            CheckOutTime = DateTime.UtcNow;
-            Duration = (CheckOutTime - ActiveSession.CheckIn).TotalHours;
-        }
-        else
-        {
-            // It is checkin
-            ActiveSession = null;
-        }
+            if (Event == null) return;
 
-        Loading = false;
+            ActiveSession = await localStorage.GetItemAsync<LocalSession>("worktrack.ActiveSession");
+
+            if (ActiveSession != null && ActiveSession.EventId == eventId)
+            {
+                // It is checkout now
+                CheckOutTime = DateTime.UtcNow;
+                Duration = (CheckOutTime - ActiveSession.CheckIn).TotalHours;
+            }
+            else  ActiveSession = null;
+            StateHasChanged();
+        }
     }
 
     private async Task SubmitCheckIn()
@@ -133,11 +132,11 @@ else
             Error = "Bitte Aufgabe eingeben.";
             return;
         }
-
+        var tempCheckin = DateTime.UtcNow;
         var entry = new TimeEntry
         {
             EventId = Event.Id,
-            CheckIn = DateTime.UtcNow,
+            CheckIn = tempCheckin,
             NameEntered = Name,
             Task = Task,
             Status = "pending_assignment"
@@ -145,36 +144,40 @@ else
 
         Db.TimeEntry.Add(entry);
         await Db.SaveChangesAsync();
+        
+        var localData=new LocalSession{ 
+            EventId = Event.Id,
+            Name = Name,
+            Task = Task,
+            CheckIn = tempCheckin
+        };
+        
 
-        await JS.InvokeVoidAsync("worktrack.saveActiveEvent", new {
-            eventId = Event.Id,
-            name = Name,
-            task = Task,
-            checkIn = entry.CheckIn
-        });
+        await localStorage.SetItemAsync<LocalSession>("worktrack.ActiveSession",localData);
+        
 
-        Nav.NavigateTo($"/event/succes/in", true);
+        Nav.NavigateTo($"/event/success/in", true);
     }
 
     private async Task FinishCheckout()
     {
         var entry = await Db.TimeEntry
-            .Where(e => e.EventId == Event!.Id &&
-                        e.NameEntered == ActiveSession!.Name &&
-                        e.CheckOut == null)
-            .OrderByDescending(e => e.CheckIn)
-            .FirstOrDefaultAsync();
+        .Where(e => e.EventId == Event!.Id &&
+        e.NameEntered == ActiveSession!.Name &&
+        e.CheckOut == null)
+        .OrderByDescending(e => e.CheckIn)
+        .FirstOrDefaultAsync();
 
         if (entry != null)
         {
             entry.CheckOut = CheckOutTime;
-            TimeSpan? diff =CheckOutTime-entry.CheckIn;
+            TimeSpan? diff = CheckOutTime - entry.CheckIn;
             entry.DurationHours = diff?.TotalHours ?? 0;
 
             if (Event!.AutoMatchUsers)
             {
                 var user = await Db.Users
-                    .FirstOrDefaultAsync(u => u.Name == ActiveSession.Name);
+                .FirstOrDefaultAsync(u => u.Name == ActiveSession.Name);
 
                 if (user != null)
                 {
@@ -189,9 +192,9 @@ else
             await Db.SaveChangesAsync();
         }
 
-        await JS.InvokeVoidAsync("worktrack.clearActiveEvent");
+        await localStorage.RemoveItemAsync("worktrack.ActiveSession");
 
-        Nav.NavigateTo($"/event/succes/out?time={Duration:0.0}", true);
+        Nav.NavigateTo($"/event/success/out?time={Duration:0.0}", true);
     }
 
     public class LocalSession
