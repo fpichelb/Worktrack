@@ -1,0 +1,105 @@
+@page "/admin/archive"
+@using Microsoft.EntityFrameworkCore
+@layout AdminLayout
+
+@inject AppDbContext Db
+
+<h2>Stunden archivieren</h2>
+
+<div class="card">
+    <p>Hier kannst du die seit dem letzten Archiv gesammelten Stunden der Nutzer endgültig verbuchen.</p>
+
+    @if (Rows == null)
+    {
+        <p>Lade…</p>
+    }
+    else if (!Rows.Any())
+    {
+        <p>Keine Stunden zum Archivieren gefunden.</p>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr>
+                    <th>Nutzer</th>
+                    <th class="text-right">Aktuelle Stunden</th>
+                    <th class="text-right">Bereits archiviert</th>
+                    <th class="text-right">Neu gesamt</th>
+                    <th class="text-right">Aktion</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var r in Rows)
+                {
+                    <tr>
+                        <td>@r.User.Name</td>
+                        <td class="text-right">@r.CurrentHours.ToString("0.0")</td>
+                        <td class="text-right">@r.User.ArchivedHours.ToString("0.0")</td>
+                        <td class="text-right">@(r.User.ArchivedHours + r.CurrentHours).ToString("0.0")</td>
+                        <td class="text-right">
+                            <button class="btn secondary" @onclick="() => ArchiveUser(r)">Archivieren</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    private List<RowModel>? Rows;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var users = await Db.Users
+            .Where(u => u.Role != "admin")
+            .ToListAsync();
+
+        var entries = await Db.TimeEntry
+            .Where(e => e.CheckIn != null && e.CheckOut != null && !e.IsArchived)
+            .ToListAsync();
+
+        Rows = users.Select(u =>
+        {
+            var cur = entries
+                .Where(e => e.UserId == u.Id)
+                .Sum(e => (e.CheckOut!.Value - e.CheckIn!.Value).TotalHours);
+
+            return new RowModel
+            {
+                User = u,
+                CurrentHours = cur
+            };
+        })
+        .Where(r => r.CurrentHours > 0.0)
+        .OrderByDescending(r => r.CurrentHours)
+        .ToList();
+    }
+
+    private async Task ArchiveUser(RowModel row)
+    {
+        // aktuelle Stunden zu ArchivedHours addieren
+        row.User.ArchivedHours += row.CurrentHours;
+
+        // zugehörige Einträge als archiviert markieren
+        var userEntries = await Db.TimeEntry
+            .Where(e => e.UserId == row.User.Id && e.CheckIn != null && e.CheckOut != null && !e.IsArchived)
+            .ToListAsync();
+
+        foreach (var e in userEntries)
+        {
+            e.IsArchived = true;
+        }
+
+        await Db.SaveChangesAsync();
+
+        Rows?.Remove(row);
+    }
+
+    private class RowModel
+    {
+        public User User { get; set; } = default!;
+        public double CurrentHours { get; set; }
+    }
+}

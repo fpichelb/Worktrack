@@ -1,0 +1,204 @@
+@page "/event"
+@inject NavigationManager Nav
+@inject AppDbContext Db
+
+@inject IJSRuntime JS
+
+
+
+@if (Loading)
+{
+    <p>Lade Daten…</p>
+}
+else if (Event == null)
+{
+    <div class="card">
+        <h2>Event nicht gefunden</h2>
+    </div>
+}
+else
+{
+    @if (ActiveSession == null)
+    {
+        <!-- CHECK-IN FORM -->
+        <div class="card">
+            <h2>@Event.Name – Check-In</h2>
+            <p>@Event.Location</p>
+
+            @if (!string.IsNullOrEmpty(Error))
+            {
+                <p style="color:red;">@Error</p>
+            }
+
+            <div class="form-group">
+                <label>Name</label>
+                <input type="text" @bind="Name" class="form-control"/>
+            </div>
+
+            @if (Event.RequireTask)
+            {
+                <div class="form-group">
+                    <label>Aufgabe</label>
+                    <input type="text" @bind="Task" class="form-control"/>
+                </div>
+            }
+
+            <button class="btn btn-primary" @onclick="SubmitCheckIn">Check In</button>
+        </div>
+    }
+    else
+    {
+        <!-- CHECK-OUT -->
+        <div class="card">
+            <h2>@Event.Name – Check-Out</h2>
+
+            <p><strong>Name:</strong> @ActiveSession.Name</p>
+            <p><strong>Check-In:</strong> @ActiveSession.CheckIn.ToLocalTime()</p>
+            <p><strong>Check-Out:</strong> @CheckOutTime.ToLocalTime()</p>
+            <p><strong>Dauer:</strong> @Duration.ToString("0.0") Stunden</p>
+
+            <p>
+                <strong>Automatisch zugeordnet:</strong>
+                @if (AutoMatched)
+                {
+                    <span style="color:green;">?</span>
+                }
+                else
+                {
+                    <span style="color:red;">?</span>
+                }
+            </p>
+
+            <button class="btn btn-primary" @onclick="FinishCheckout">Fertig</button>
+        </div>
+    }
+}
+
+@code {
+    private Event? Event;
+    private bool Loading = true;
+
+    private string? Name;
+    private string? Task;
+    private string? Error;
+
+    private LocalSession? ActiveSession;
+
+    private DateTime CheckOutTime;
+    private double Duration;
+    private bool AutoMatched;
+
+    protected override async Task Afterf()
+    {
+        var uri = new Uri(Nav.Uri);
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+
+        int eventId = int.Parse(query.Get("event")!);
+
+        Event = await Db.Events.FirstOrDefaultAsync(e => e.Id == eventId);
+
+        if (Event == null)
+        {
+            Loading = false;
+            return;
+        }
+
+        ActiveSession = await JS.InvokeAsync<LocalSession>("worktrack.getActiveEvent");
+
+        if (ActiveSession != null && ActiveSession.EventId == eventId)
+        {
+            // It is checkout now
+            CheckOutTime = DateTime.UtcNow;
+            Duration = (CheckOutTime - ActiveSession.CheckIn).TotalHours;
+        }
+        else
+        {
+            // It is checkin
+            ActiveSession = null;
+        }
+
+        Loading = false;
+    }
+
+    private async Task SubmitCheckIn()
+    {
+        if (string.IsNullOrWhiteSpace(Name))
+        {
+            Error = "Bitte gib deinen Namen ein.";
+            return;
+        }
+
+        if (Event!.RequireTask && string.IsNullOrWhiteSpace(Task))
+        {
+            Error = "Bitte Aufgabe eingeben.";
+            return;
+        }
+
+        var entry = new TimeEntry
+        {
+            EventId = Event.Id,
+            CheckIn = DateTime.UtcNow,
+            NameEntered = Name,
+            Task = Task,
+            Status = "pending_assignment"
+        };
+
+        Db.TimeEntry.Add(entry);
+        await Db.SaveChangesAsync();
+
+        await JS.InvokeVoidAsync("worktrack.saveActiveEvent", new {
+            eventId = Event.Id,
+            name = Name,
+            task = Task,
+            checkIn = entry.CheckIn
+        });
+
+        Nav.NavigateTo($"/event/succes/in", true);
+    }
+
+    private async Task FinishCheckout()
+    {
+        var entry = await Db.TimeEntry
+            .Where(e => e.EventId == Event!.Id &&
+                        e.NameEntered == ActiveSession!.Name &&
+                        e.CheckOut == null)
+            .OrderByDescending(e => e.CheckIn)
+            .FirstOrDefaultAsync();
+
+        if (entry != null)
+        {
+            entry.CheckOut = CheckOutTime;
+            TimeSpan? diff =CheckOutTime-entry.CheckIn;
+            entry.DurationHours = diff?.TotalHours ?? 0;
+
+            if (Event!.AutoMatchUsers)
+            {
+                var user = await Db.Users
+                    .FirstOrDefaultAsync(u => u.Name == ActiveSession.Name);
+
+                if (user != null)
+                {
+                    entry.UserId = user.Id;
+                    entry.UserName = user.Name;
+                    entry.Status = "checked_out";
+                    AutoMatched = true;
+                }
+            }
+
+            Db.TimeEntry.Update(entry);
+            await Db.SaveChangesAsync();
+        }
+
+        await JS.InvokeVoidAsync("worktrack.clearActiveEvent");
+
+        Nav.NavigateTo($"/event/succes/out?time={Duration:0.0}", true);
+    }
+
+    public class LocalSession
+    {
+        public int EventId { get; set; }
+        public string Name { get; set; } = "";
+        public string? Task { get; set; }
+        public DateTime CheckIn { get; set; }
+    }
+}

@@ -1,0 +1,8 @@
+.vs/
+k/.idea/
+/obj
+/bin/
+/wwwroot/css/bootstrap
+/wwwroot/lib/bootstrap
+appsettings.json
+.DS_Store

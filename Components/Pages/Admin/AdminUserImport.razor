@@ -1,0 +1,105 @@
+@page "/admin/import-users"
+@layout AdminLayout
+@rendermode InteractiveServer
+
+@using Microsoft.EntityFrameworkCore
+@inject AppDbContext Db
+
+<h2>User Import (CSV)</h2>
+
+<div class="card">
+    <p>Erwarte CSV mit: <code>Name,Email,SecretCode,Role,ShareStats</code></p>
+
+    <InputFile OnChange="@OnFileSelected" />
+
+    @if (!string.IsNullOrEmpty(StatusMessage))
+    {
+        <p class="mt-4">@StatusMessage</p>
+    }
+
+    @if (Imported.Any())
+    {
+        <button class="btn mt-4" @onclick="SaveImported">Speichern (@Imported.Count)</button>
+
+        <table class="mt-4">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>E-Mail</th>
+                    <th>SecretCode</th>
+                    <th>Rolle</th>
+                    <th>ShareStats</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var u in Imported)
+                {
+                    <tr>
+                        <td>@u.Name</td>
+                        <td>@u.Email</td>
+                        <td>@u.SecretCode</td>
+                        <td>@u.Role</td>
+                        <td>@u.ShareStats</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    private List<User> Imported = new();
+    private string? StatusMessage;
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            using var reader = new StreamReader(e.File.OpenReadStream());
+            var content = await reader.ReadToEndAsync();
+            var lines = content.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
+            Imported.Clear();
+
+            foreach (var line in lines.Skip(1))
+            {
+                var cols = line.Split(';', StringSplitOptions.TrimEntries);
+                if (cols.Length < 5) continue;
+
+                var user = new User
+                {
+                    Name = cols[0],
+                    Email = cols[1],
+                    SecretCode = cols[2].ToUpperInvariant(),
+                    Role = cols[3].ToLowerInvariant(),
+                    ShareStats = bool.TryParse(cols[4], out var s) && s
+                };
+
+                Imported.Add(user);
+            }
+
+            StatusMessage = $"Import vorbereitet: {Imported.Count} Nutzer.";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Fehler beim Lesen: {ex.Message}";
+        }
+    }
+
+    private async Task SaveImported()
+    {
+        var existingCodes = await Db.Users.Select(u => u.SecretCode).ToListAsync();
+        var newUsers = Imported.Where(u => !existingCodes.Contains(u.SecretCode)).ToList();
+
+        if (!newUsers.Any())
+        {
+            StatusMessage = "Keine neuen Nutzer.";
+            return;
+        }
+
+        await Db.Users.AddRangeAsync(newUsers);
+        await Db.SaveChangesAsync();
+        Imported.Clear();
+        StatusMessage = $"Gespeichert: {newUsers.Count} Nutzer.";
+    }
+}

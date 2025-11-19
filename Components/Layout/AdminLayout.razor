@@ -1,0 +1,109 @@
+@inherits LayoutComponentBase
+@inject NavigationManager Nav
+@inject AppDbContext Db
+@inject AppState State
+
+@code {
+    private string? Code;
+
+    protected override void OnInitialized()
+    {
+        var uri = new Uri(Nav.Uri);
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+
+        Code = query.Get("code");
+
+        if(State.CurrentUser == null ) Nav.NavigateTo("/user/login",true);
+        if(State.CurrentUser.Role != "admin") Nav.NavigateTo($"/user/Dashboard/?code={Code}",true);
+    
+    }
+
+    private string Link(string baseUrl)
+    {
+        if (string.IsNullOrWhiteSpace(Code))
+            return baseUrl;
+
+        // code anf�gen
+        return $"{baseUrl}?code={Code}";
+    }
+}
+
+<div class="layout">
+    <header>
+        <h1>Worktrack</h1>
+
+        <nav>
+            <a href="/user/login">User Login</a>
+            <a href="@Link("/user/dashboard")">Dashboard</a>
+            <a href="@Link("/admin/dashboard")">Admin</a>
+        </nav>
+
+    </header>
+   
+<main class="container">
+        
+<h2>Admin Dashboard</h2>
+
+<div class="card">
+    <h3>Verwaltung</h3>
+    <p>Wähle einen Bereich:</p>
+
+<div class="container mt-3">
+
+    <!-- Navigation Tabs -->
+    <ul class="nav nav-tabs mb-4">
+
+        <li class="nav-item">
+            <a class="nav-link @(Active("users"))"
+                href="/admin/users">
+                Benutzer
+            </a>
+        </li>
+
+        <li class="nav-item">
+            <a class="nav-link @(Active("events"))"
+                href="/admin/events">
+                Events
+            </a>
+        </li>
+
+        <li class="nav-item">
+            <a class="nav-link @(Active("pending"))"
+               href="/admin/pending">
+                Offene Einträge
+            </a>
+        </li>
+
+        <li class="nav-item">
+            <a class="nav-link @(Active("archive"))"
+                href="/admin/archive">
+                Stunden archivieren
+            </a>
+        </li>
+
+        <li class="nav-item">
+            <a class="nav-link @(Active("import-users"))"
+                href="/admin/import-users">
+                User Import
+            </a>
+        </li>
+
+    </ul>
+
+    <!-- Admin Page Content -->
+    @Body
+</div>
+</div>
+
+</main>
+</div>
+@code {
+    string Active(string page)
+    {
+        var uri = Nav.Uri.ToLower();
+        return uri.Contains($"/admin/{page}".ToLower())
+            ? "active"
+            : "";
+    }
+   
+}

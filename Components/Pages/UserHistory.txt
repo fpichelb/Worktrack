@@ -1,0 +1,145 @@
+@page "/user/history"
+
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.JSInterop
+@inject NavigationManager Nav
+@inject AppDbContext Db
+@inject TimeEntryService TimeEntries
+@inject IJSRuntime JS
+
+<h2>Meine Arbeitszeiten</h2>
+
+@if (Loading)
+{
+    <p>Lade Einträge…</p>
+}
+else if (User == null)
+{
+    <div class="card">
+        <h3>Kein Zugriff</h3>
+        <p>Du musst dich zuerst einloggen.</p>
+        <button class="btn btn-primary" @onclick="GoLogin">Zum Login</button>
+    </div>
+}
+else
+{
+    <div class="card">
+        <h3>@User.Name – Zeitaufzeichnungen</h3>
+        <p>Alle Ein- & Auscheckzeiten, sortiert nach Datum.</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Datum</th>
+                    <th>Event</th>
+                    <th>Aufgabe</th>
+                    <th>Check-In</th>
+                    <th>Check-Out</th>
+                    <th>Dauer (h)</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Entries.Count == 0)
+                {
+                    <tr>
+                        <td colspan="7" style="text-align:center; padding:1rem;">
+                            Keine Einträge vorhanden.
+                        </td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var e in Entries)
+                    {
+                        <tr>
+                            <td>@e.CheckIn.ToLocalTime().ToString("dd.MM.yyyy")</td>
+                            <td>@e.EventName</td>
+                            <td>@(string.IsNullOrWhiteSpace(e.Task) ? "-" : e.Task)</td>
+                            <td>@e.CheckIn.ToLocalTime().ToString("HH:mm")</td>
+                            <td>@(e.CheckOut?.ToLocalTime().ToString("HH:mm") ?? "-")</td>
+                            <td>@((e.DurationHours ?? 0).ToString("0.0"))</td>
+                            <td>
+                                @if (e.Status == "checked_out")
+                                {
+                                    <span class="badge" style="background:#d4f4d7; color:#246b2f;">Abgeschlossen</span>
+                                }
+                                else if (e.Status == "checked_in")
+                                {
+                                    <span class="badge" style="background:#fff3cd; color:#8a6d3b;">Aktiv</span>
+                                }
+                                else
+                                {
+                                    <span class="badge" style="background:#f8d7da; color:#842029;">Offen</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+
+        <button class="btn btn-secondary" style="margin-top:1rem;" @onclick="GoDashboard">
+            Zurück zum Dashboard
+        </button>
+    </div>
+}
+
+@code {
+    private bool Loading = true;
+    private User? User;
+    private List<UserEntryViewModel> Entries = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // SecretCode aus URL laden
+        var uri = new Uri(Nav.Uri);
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        var code = query.Get("code");
+
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            Loading = false;
+            return;
+        }
+
+        // Benutzer laden
+        User = await Db.Users
+            .FirstOrDefaultAsync(u => u.SecretCode == code);
+
+        if (User == null)
+        {
+            Loading = false;
+            return;
+        }
+
+        // Einträge des Users laden
+        var userEntries = await TimeEntries.GetEntriesForUserAsync(User.Id);
+
+        // Eventnamen zuordnen
+        Entries = userEntries
+            .OrderByDescending(e => e.CheckIn)
+            .Select(e => new UserEntryViewModel
+            {
+                Id = e.Id,
+                EventName = Db.Events.First(ev => ev.Id == e.EventId).Name,
+                Task = e.Task,
+                CheckIn = e.CheckIn,
+                CheckOut = e.CheckOut,
+                DurationHours = e.DurationHours,
+                Status = e.Status
+            })
+            .ToList();
+
+        Loading = false;
+    }
+
+    private void GoLogin() => Nav.NavigateTo("/user/login", true);
+
+    private void GoDashboard() =>
+        Nav.NavigateTo($"/user/dashboard?code={User?.SecretCode}", true);
+
+    // ViewModel für History
+    public class UserEntryViewModel
+    {
+        public int Id { get; set; }

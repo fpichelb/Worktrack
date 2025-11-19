@@ -1,0 +1,25 @@
+@page "/event/success/in"
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<div class="card" style="text-align:center;">
+    <h2>Check-In erfolgreich!</h2>
+    <p>Du bist jetzt für das Event eingecheckt.</p>
+
+    <button class="btn btn-primary" @onclick="GoBack">Zurück</button>
+</div>
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool first)
+    {
+        if (first)
+        {
+            await JS.InvokeVoidAsync("worktrack.playSuccess");
+        }
+    }
+
+    private void GoBack()
+    {
+        Nav.NavigateTo("/", true);
+    }
+}

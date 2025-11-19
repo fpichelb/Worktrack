@@ -1,0 +1,38 @@
+@page "/event/success/out"
+@inject NavigationManager Nav
+
+@inject IJSRuntime JS
+
+@code {
+    [Parameter] public string? time { get; set; }
+}
+
+<div class="card" style="text-align:center;">
+    <h2>Check-Out erfolgreich!</h2>
+    <p>Gearbeitete Zeit: <strong>@time Stunden</strong></p>
+
+    <button class="btn btn-primary" @onclick="GoBack">Zurück</button>
+
+    <p style="color:gray; margin-top:1rem;">
+        Du wirst automatisch in 5 Sekunden zurückgeleitet…
+    </p>
+</div>
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool first)
+    {
+        if (first)
+        {
+            await JS.InvokeVoidAsync("worktrack.playSuccess");
+
+            // Auto redirect
+            await Task.Delay(5000);
+            Nav.NavigateTo("/", true);
+        }
+    }
+
+    private void GoBack()
+    {
+        Nav.NavigateTo("/", true);
+    }
+}

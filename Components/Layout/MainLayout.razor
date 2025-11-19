@@ -1,0 +1,48 @@
+@inherits LayoutComponentBase
+@inject NavigationManager Nav
+@inject AppDbContext Db
+@inject AppState State
+
+@code {
+    private string? Code;
+
+    protected override void OnInitialized()
+    {
+        var uri = new Uri(Nav.Uri);
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+
+        Code = query.Get("code");
+
+    }
+
+    private string Link(string baseUrl)
+    {
+        if (string.IsNullOrWhiteSpace(Code))
+            return baseUrl;
+
+        // code anfügen
+        return $"{baseUrl}?code={Code}";
+    }
+}
+
+<div class="layout">
+    <header>
+        <h1>Worktrack</h1>
+
+        <nav>
+            <a href="/user/login">User Login</a>
+            <a href="@Link("/user/dashboard")">Dashboard</a>
+            @if(State.CurrentUser?.Role == "admin"){
+            <a href="@Link("/admin/dashboard")">Admin</a>}
+        </nav>
+
+    </header>
+
+    <main class="container">
+        @Body
+    </main>
+
+    <footer>
+        © @(DateTime.Now.Year) Worktrack – All rights reserved.
+    </footer>
+</div>

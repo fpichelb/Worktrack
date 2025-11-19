@@ -1,0 +1,186 @@
+@page "/user/dashboard"
+
+@inject NavigationManager Nav
+@inject AppDbContext Db
+@rendermode InteractiveServer
+
+<h2>User Dashboard</h2>
+
+@if (CurrentUser == null)
+{
+    <p>Lade Daten...</p>
+}
+else
+{
+    <div class="container">
+
+        <!-- HEADER -->
+        <div class="card">
+            <h2>Hallo, @CurrentUser.Name!</h2>
+            <p>Hier findest du alle deine Arbeitsstunden und Eventteilnahmen.</p>
+        </div>
+
+        <!-- USER HOURS SUMMARY -->
+        <div class="card">
+            <h3>Deine Statistik</h3>
+
+            <table class="info-table">
+                <tr>
+                    <td><strong>Gesamtstunden:</strong></td>
+                    <td>@TotalHours.ToString("0.0") h</td>
+                </tr>
+                <tr>
+                    <td><strong>Besuchte Events:</strong></td>
+                    <td>@EventsVisited</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- TEAM COMPARISON OPT-IN -->
+        <div class="card">
+            <h3>Teamvergleich</h3>
+            <p>Wenn du zustimmst, erscheinst du im Teamranking und kannst deine Leistungen mit anderen vergleichen.</p>
+
+            <label style="display:flex; align-items:center; gap:0.5rem;">
+                <input type="checkbox"
+                       @bind="@CurrentUser.ShareStats" />
+
+                <span>Ich möchte am Teamvergleich teilnehmen</span>
+            </label>
+
+            <div style="margin-top:1rem;">
+                @if (CurrentUser.ShareStats == true)
+                {
+                    <a class="btn btn-primary"
+                       href="/teamstats?code=@CurrentUser.SecretCode">
+                       ➜ Zum Teamvergleich
+                    </a>
+                }
+                else
+                {
+                    <button class="btn btn-secondary" disabled>
+                        Teamvergleich deaktiviert
+                    </button>
+                }
+            </div>
+        </div>
+
+        <!-- MY EVENTS -->
+        <div class="card">
+            <h3>Meine Events</h3>
+
+            @if (!MyEventStats.Any())
+            {
+                <p>Du hast bisher an keinen Events teilgenommen.</p>
+            }
+            else
+            {
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Event</th>
+                            <th>Ort</th>
+                            <th>Datum</th>
+                            <th>Stunden</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var ev in MyEventStats)
+                        {
+                            <tr>
+                                <td>@ev.EventName</td>
+                                <td>@ev.Location</td>
+                                <td>@ev.Date.ToShortDateString()</td>
+                                <td>@ev.Hours.ToString("0.0")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+
+        <!-- LOGOUT / BACK -->
+        <div class="card" style="text-align:center;">
+            <button class="btn btn-secondary" @onclick="Logout">
+                Logout
+            </button>
+        </div>
+
+    </div>
+}
+
+@code {
+    private User? CurrentUser;
+    private List<TimeEntry> UserEntries = new();
+    private List<EventStatsModel> MyEventStats = new();
+
+    private double TotalHours = 0;
+    private int EventsVisited = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Secret code from URL
+        var code = System.Web.HttpUtility.ParseQueryString(
+            new Uri(Nav.Uri).Query).Get("code");
+
+        if (code == null)
+        {
+            Nav.NavigateTo("/user/login");
+            return;
+        }
+
+        CurrentUser = await Db.Users.FirstOrDefaultAsync(u => u.SecretCode == code);
+        if (CurrentUser == null)
+        {
+            Nav.NavigateTo("/user/login");
+            return;
+        }
+
+        await LoadStats();
+    }
+
+    private async Task LoadStats()
+    {
+        UserEntries = await Db.TimeEntry
+            .Where(e => e.UserId == CurrentUser!.Id && e.CheckOut != null)
+            .Include(e => e.Event)
+            .ToListAsync();
+
+        TotalHours = UserEntries.Sum(e =>
+            e.DurationHours??0);
+
+        EventsVisited = UserEntries
+            .Select(e => e.EventId)
+            .Distinct()
+            .Count();
+
+        MyEventStats = UserEntries
+            .GroupBy(e => e.EventId)
+            .Select(g => new EventStatsModel
+            {
+                EventId = g.Key,
+                EventName = g.First().Event!.Name,
+                Location = g.First().Event!.Location,
+                Date = g.First().CheckIn.Value,
+                Hours = g.Sum(e =>
+                    (e.CheckOut!.Value - e.CheckIn!.Value).TotalHours)
+            })
+            .OrderByDescending(x => x.Date)
+            .ToList();
+    }
+
+
+    private void Logout()
+    {
+        Nav.NavigateTo("/user/login", forceLoad: true);
+    }
+
+    public class EventStatsModel
+    {
+        public int EventId { get; set; }
+        public string EventName { get; set; } = "";
+        public string Location { get; set; } = "";
+        public DateTime Date { get; set; }
+        public double Hours { get; set; }
+    }
+}

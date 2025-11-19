@@ -1,0 +1,187 @@
+@page "/admin/events"
+@layout AdminLayout
+
+@using Microsoft.EntityFrameworkCore
+@inject AppDbContext Db
+@inject NavigationManager Nav
+@rendermode InteractiveServer
+
+
+<h2>Event-Verwaltung</h2>
+
+<div class="card">
+    <h3>Neues Event anlegen</h3>
+
+    <EditForm Model="@NewEvent" OnValidSubmit="@CreateEvent" FormName="CreateEvent">
+        <DataAnnotationsValidator />
+        
+
+        <label>Name</label>
+        <input @bind="@NewEvent.Name" />
+
+        <label>Ort</label>
+        <input @bind="@NewEvent.Location" />
+
+        <label>Beschreibung</label>
+        <input @bind="@NewEvent.Description" />
+
+        <label>Standardstunden (Auto-Checkout)</label>
+        <input @bind="@NewEvent.DefaultHours" />
+
+        <div style="margin-top:0.75rem;">
+            <input type="checkbox" id="am" @bind="@NewEvent.AutoMatchUsers" />
+            <label for="am" style="margin-left:0.3rem;">Auto-Match Benutzer</label>
+        </div>
+
+        <div style="margin-top:0.5rem;">
+            <input type="checkbox" id="rt" @bind="@NewEvent.RequireTask" />
+            <label for="rt" style="margin-left:0.3rem;">Aufgabe erforderlich</label>
+        </div>
+
+        <button type="submit" class="btn mt-4">Event speichern</button>
+    </EditForm>
+</div>
+
+<div class="card">
+    <h3>Bestehende Events</h3>
+
+    @if (Events == null)
+    {
+        <p>Lade Events…</p>
+    }
+    else if (Events.Count == 0)
+    {
+        <p>Keine Events vorhanden.</p>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Ort</th>
+                    <th>Start-Code</th>
+                    <th>End-Code</th>
+                    <th>AutoMatch</th>
+                    <th>Aktiv</th>
+                    <th class="text-right">Aktionen</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var e in Events)
+                {
+                    <tr>
+                        <td>@e.Name</td>
+                        <td>@e.Location</td>
+                        <td>
+                            @if (QrCache.ContainsKey(e.Id))
+                            {
+                                <img src="@QrCache[e.Id]"
+                                     style="width:80px; border:1px solid #ccc; padding:3px;" />
+                            }
+
+                            <br />
+                            <button class="btn btn-secondary btn-small"
+                                    @onclick="() => ShowLargeQR(e.Id)">
+                                QR groß
+                            </button>
+                        </td>
+                        <td>@(e.AutoMatchUsers ? "Ja" : "Nein")</td>
+                        <td>@(e.IsActive ? "Ja" : "Nein")</td>
+                        <td class="text-right">
+                            <button class="btn secondary" style="margin-right:0.5rem;" @onclick="() => ToggleActive(e)">
+                                @(e.IsActive ? "Deaktivieren" : "Aktivieren")
+                            </button>
+                            <button class="btn secondary" @onclick="() => DeleteEvent(e)">Löschen</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+<!-- GROßES QR POPUP -->
+@if (LargeQrBase64 != null)
+{
+    <div class="qr-backdrop" @onclick="CloseLargeQR">
+        <div class="qr-popup" @onclick:stopPropagation>
+            <h3>QR-Code Event</h3>
+            <img src="@LargeQrBase64"
+                 style="width:300px; border:2px solid #333; padding:10px;" />
+
+            <br />
+            <a href="@LargeQrBase64"
+               download="Event-QR.png"
+               class="btn btn-primary"
+               style="margin-top:1rem;">
+                Herunterladen
+            </a>
+
+            <button class="btn btn-secondary"
+                    style="margin-top:1rem;"
+                    @onclick="CloseLargeQR">
+                Schließen
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Event>? Events;
+    private Event NewEvent = new();
+     private Dictionary<int, string> QrCache = new();
+     private string? LargeQrBase64 = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Events = await Db.Events
+            .OrderByDescending(e => e.Id)
+            .ToListAsync();
+
+        foreach (var e in Events)
+        {
+            var url = $"{Nav.BaseUri.TrimEnd('/')}/event?event={e.Id}";
+            QrCache[e.Id] = await QrHelper.GeneratePngBase64(url);
+        }
+    }
+
+    private async Task CreateEvent()
+    {
+        if (string.IsNullOrWhiteSpace(NewEvent.Name) || string.IsNullOrWhiteSpace(NewEvent.Location))
+            return;
+
+       
+        NewEvent.IsActive = true;
+
+        Db.Events.Add(NewEvent);
+        await Db.SaveChangesAsync();
+
+        StateHasChanged();
+        NewEvent = new();
+    }
+
+    private async Task ToggleActive(Event e)
+    {
+        e.IsActive = !e.IsActive;
+        await Db.SaveChangesAsync();
+    }
+
+    private async Task DeleteEvent(Event e)
+    {
+        Db.Events.Remove(e);
+        await Db.SaveChangesAsync();
+        Events?.Remove(e);
+    }
+
+    private void ShowLargeQR(int eventId)
+    {
+        LargeQrBase64 = QrCache[eventId];
+        StateHasChanged();
+    }
+
+    private void CloseLargeQR()
+    {
+        LargeQrBase64 = null;
+    }
+}

@@ -1,0 +1,93 @@
+@page "/admin/pending"
+@layout AdminLayout
+
+
+@using Microsoft.EntityFrameworkCore
+@inject AppDbContext Db
+
+
+<h2>Offene Zeiteinträge</h2>
+
+<div class="card">
+    <h3>Zuordnung ausstehend</h3>
+
+    @if (Pending == null)
+    {
+        <p>Lade…</p>
+    }
+    else if (!Pending.Any())
+    {
+        <p>Keine offenen Einträge.</p>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr>
+                    <th>Name eingegeben</th>
+                    <th>Event</th>
+                    <th>Task</th>
+                    <th>Check-In</th>
+                    <th>Check-Out</th>
+                    <th>Nutzer zuordnen</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var e in Pending)
+                {
+                    <tr>
+                        <td>@e.NameEntered</td>
+                        <td>@e.Event?.Name</td>
+                        <td>@(string.IsNullOrEmpty(e.Task) ? "-" : e.Task)</td>
+                        <td>@e.CheckIn.Value.ToLocalTime()</td>
+                        <td>@(e.CheckOut.HasValue ? e.CheckOut.Value.ToLocalTime().ToString() : "-")</td>
+                        <td>
+                            <select @onchange="(args) => AssignUser(e, args.Value?.ToString())">
+                                <option value="">-- User wählen --</option>
+                                @foreach (var u in Users)
+                                {
+                                    <option value="@u.Id">@u.Name</option>
+                                }
+                            </select>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    private List<TimeEntry>? Pending;
+    private List<User> Users = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        Pending = await Db.TimeEntry
+            .Include(t => t.Event)
+            .Where(t => t.Status == "pending_assignment")
+            .OrderByDescending(t => t.CheckIn)
+            .ToListAsync();
+
+        Users = await Db.Users
+            .Where(u => u.Role != "admin")
+            .OrderBy(u => u.Name)
+            .ToListAsync();
+    }
+
+    private async Task AssignUser(TimeEntry entry, string? value)
+    {
+        if (int.TryParse(value, out var userId))
+        {
+            var user = Users.FirstOrDefault(u => u.Id == userId);
+            if (user == null) return;
+
+            entry.UserId = userId;
+            entry.Status = entry.CheckOut.HasValue ? "checked_out" : "checked_in";
+
+            await Db.SaveChangesAsync();
+
+            Pending?.Remove(entry);
+        }
+    }
+}
