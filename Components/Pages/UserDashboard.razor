@@ -17,7 +17,7 @@ else
         <!-- HEADER -->
         <div class="card">
             <h2>Hallo, @CurrentUser.Name!</h2>
-            <p>Hier findest du alle deine Arbeitsstunden und Eventteilnahmen.</p>
+            <p>Hier findest du alle deine Arbeitsstunden und Teilnahmen.</p>
         </div>
 
         <!-- USER HOURS SUMMARY -->
@@ -26,11 +26,15 @@ else
 
             <table class="info-table">
                 <tr>
+                    <td><strong>Bonusstunden:</strong></td>
+                    <td>@CurrentUser.BonusHours.ToString("0") h</td>
+                </tr>
+                <tr>
                     <td><strong>Gesamtstunden:</strong></td>
                     <td>@TotalHours.ToString("0.0") h</td>
                 </tr>
                 <tr>
-                    <td><strong>Besuchte Events:</strong></td>
+                    <td><strong>Besuchte Einsätze/Events:</strong></td>
                     <td>@EventsVisited</td>
                 </tr>
             </table>
@@ -42,8 +46,9 @@ else
             <p>Wenn du zustimmst, erscheinst du im Teamranking und kannst deine Leistungen mit anderen vergleichen.</p>
 
             <label style="display:flex; align-items:center; gap:0.5rem;">
-                <input type="checkbox"
-                       @bind="@CurrentUser.ShareStats" />
+                <input type="checkbox"  
+                checked="@CurrentUser.ShareStats"
+                @onchange="saveStats" />
 
                 <span>Ich möchte am Teamvergleich teilnehmen</span>
             </label>
@@ -51,9 +56,8 @@ else
             <div style="margin-top:1rem;">
                 @if (CurrentUser.ShareStats == true)
                 {
-                    <a class="btn btn-primary"
-                       href="/teamstats?code=@CurrentUser.SecretCode">
-                       ➜ Zum Teamvergleich
+                    <a class="btn btn-primary" href="/teamstats?code=@CurrentUser.SecretCode">
+                        ➜ Zum Teamvergleich
                     </a>
                 }
                 else
@@ -117,56 +121,69 @@ else
     private double TotalHours = 0;
     private int EventsVisited = 0;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        // Secret code from URL
-        var code = System.Web.HttpUtility.ParseQueryString(
+        if (firstRender)
+        {// Secret code from URL
+            var code = System.Web.HttpUtility.ParseQueryString(
             new Uri(Nav.Uri).Query).Get("code");
 
-        if (code == null)
-        {
-            Nav.NavigateTo("/user/login");
-            return;
-        }
+            if (code == null)
+            {
+                Nav.NavigateTo("/user/login");
+                return;
+            }
 
-        CurrentUser = await Db.Users.FirstOrDefaultAsync(u => u.SecretCode == code);
-        if (CurrentUser == null)
-        {
-            Nav.NavigateTo("/user/login");
-            return;
+            CurrentUser = await Db.Users.FirstOrDefaultAsync(u => u.SecretCode == code);
+            if (CurrentUser == null)
+            {
+                Nav.NavigateTo("/user/login");
+                return;
+            }
+           
+            await LoadStats();
+            StateHasChanged();
         }
+    }
 
-        await LoadStats();
+    private async Task saveStats()
+    {
+        Db.Users.Update(CurrentUser);
+        await Db.SaveChangesAsync();
+        StateHasChanged();
+
     }
 
     private async Task LoadStats()
     {
         UserEntries = await Db.TimeEntry
-            .Where(e => e.UserId == CurrentUser!.Id && e.CheckOut != null)
-            .Include(e => e.Event)
-            .ToListAsync();
+        .Where(e => e.UserId == CurrentUser!.Id && e.CheckOut != null)
+        .Include(e => e.Event)
+        .ToListAsync();
 
         TotalHours = UserEntries.Sum(e =>
-            e.DurationHours??0);
+        e.DurationHours ?? 0);
+
+        TotalHours+=CurrentUser.BonusHours;
 
         EventsVisited = UserEntries
-            .Select(e => e.EventId)
-            .Distinct()
-            .Count();
+        .Select(e => e.EventId)
+        .Distinct()
+        .Count();
 
         MyEventStats = UserEntries
-            .GroupBy(e => e.EventId)
-            .Select(g => new EventStatsModel
-            {
-                EventId = g.Key,
-                EventName = g.First().Event!.Name,
-                Location = g.First().Event!.Location,
-                Date = g.First().CheckIn.Value,
-                Hours = g.Sum(e =>
-                    (e.CheckOut!.Value - e.CheckIn!.Value).TotalHours)
-            })
-            .OrderByDescending(x => x.Date)
-            .ToList();
+        .GroupBy(e => e.EventId)
+        .Select(g => new EventStatsModel
+        {
+            EventId = g.Key,
+            EventName = g.First().Event!.Name,
+            Location = g.First().Event!.Location,
+            Date = g.First().CheckIn.Value,
+            Hours = g.Sum(e =>
+    (e.CheckOut!.Value - e.CheckIn!.Value).TotalHours)
+        })
+        .OrderByDescending(x => x.Date)
+        .ToList();
     }
 
 

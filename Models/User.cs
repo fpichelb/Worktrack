@@ -9,7 +9,7 @@ public class User
     [Required, MaxLength(100)]
     public string Name { get; set; } = string.Empty;
 
-    [Required, MaxLength(200)]
+    [MaxLength(200)]
     public string Email { get; set; } = string.Empty;
 
     [Required, MaxLength(10)]
@@ -19,5 +19,7 @@ public class User
 
     public bool ShareStats { get; set; } = true;
     public string Role { get; set; } = "user"; // admin / user
+
+    public int BonusHours { get; set; } = 0;
 
 }

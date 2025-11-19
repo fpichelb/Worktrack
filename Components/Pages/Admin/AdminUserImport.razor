@@ -4,11 +4,12 @@
 
 @using Microsoft.EntityFrameworkCore
 @inject AppDbContext Db
+@inject UserService Uservice
 
 <h2>User Import (CSV)</h2>
 
 <div class="card">
-    <p>Erwarte CSV mit: <code>Name,Email,SecretCode,Role,ShareStats</code></p>
+    <p>Erwarte CSV mit: <code>Name,Email,SecretCode,Role,Bonus,ShareStats</code></p>
 
     <InputFile OnChange="@OnFileSelected" />
 
@@ -64,7 +65,7 @@
             foreach (var line in lines.Skip(1))
             {
                 var cols = line.Split(';', StringSplitOptions.TrimEntries);
-                if (cols.Length < 5) continue;
+                if (cols.Length < 6) continue;
 
                 var user = new User
                 {
@@ -72,9 +73,10 @@
                     Email = cols[1],
                     SecretCode = cols[2].ToUpperInvariant(),
                     Role = cols[3].ToLowerInvariant(),
-                    ShareStats = bool.TryParse(cols[4], out var s) && s
+                    BonusHours = int.TryParse(cols[4],out var bonus)? bonus : 0,
+                    ShareStats = bool.TryParse(cols[5], out var share) && share
                 };
-
+                if(string.IsNullOrWhiteSpace(user.SecretCode)) user.SecretCode = await Uservice.GenerateUniqueCodeAsync();
                 Imported.Add(user);
             }
 

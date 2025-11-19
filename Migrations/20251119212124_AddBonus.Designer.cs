@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Worktrack.Data;
 
@@ -11,9 +12,11 @@ using Worktrack.Data;
 namespace Worktrack.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251119212124_AddBonus")]
+    partial class AddBonus
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -133,9 +136,6 @@ namespace Worktrack.Migrations
 
                     b.Property<double>("ArchivedHours")
                         .HasColumnType("double");
-
-                    b.Property<int>("BonusHours")
-                        .HasColumnType("int");
 
                     b.Property<string>("Email")
                         .IsRequired()

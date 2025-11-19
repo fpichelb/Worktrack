@@ -6,6 +6,7 @@
 @using System.Text
 @inject AppDbContext Db
 @inject IJSRuntime JS
+@inject UserService UService
 
 <h2>Benutzerverwaltung</h2>
 
@@ -18,6 +19,7 @@
         <div>
             <a class="btn secondary" style="margin-right:0.5rem;" href="/admin/import-users">User Import</a>
             <button class="btn" style="margin-right:0.5rem;" @onclick="ShowAktionen">Show Aktionen</button>
+            <button class="btn" style="margin-right:0.5rem;" @onclick="ShowAddUser">Show AddUser</button>
             <button class="btn" @onclick="ExportCsv">CSV Export</button>
         </div>
     </div>
@@ -26,7 +28,38 @@
         <input placeholder="Suche nach Name oder E-Mail…" @bind="@SearchTerm" />
         <button class="btn secondary" @onclick="LoadUsers">Suchen</button>
     </div>
+    @if(showAddUser){
+    <div class="card" style="margin-bottom:2rem;">
+    <h3>Neuen Nutzer hinzufügen</h3>
 
+    @if (!string.IsNullOrEmpty(Error))
+    {
+        <p style="color:red;">@Error</p>
+    }
+
+    @if (!string.IsNullOrEmpty(Success))
+    {
+        <p style="color:green;">@Success</p>
+    }
+
+    <div class="form-group">
+        <label>Name</label>
+        <input class="form-control" @bind="Name" />
+        </div>
+
+        <div class="form-group">
+            <label>Email (optional)</label>
+            <input class="form-control" @bind="Email" />
+        </div>
+
+        <div class="form-group">
+            <label>Admin?</label>
+            <input type="checkbox" @bind="newUserIsAdmin" />
+        </div>
+
+        <button class="btn btn-primary" @onclick="AddUser">Hinzufügen</button>
+    </div>
+    }
     @if (IsLoading)
     {
         <p style="margin-top:1rem;">Lade Benutzer…</p>
@@ -47,6 +80,7 @@
                     <th class="text-right">Archiv-Stunden</th>
                     <th class="text-right">Aktuelle Stunden</th>
                    <!--- <th class="text-right">Gesamt</th>--->
+                   <th class="text-left">Bonus</th>
                     @if(showActions){
                     <th class="text-right">Aktionen</th>}
                 </tr>
@@ -60,10 +94,15 @@
                     <tr>
                         <td>@u.Name</td>
                         <td>@u.Email</td>
-                        <td>@u.SecretCode</td>
+                        <td>
+                        <input value="@u.SecretCode" @onchange="@(e=>SecretCodeHasChanged(u,e))"/>
+                        </td>
                         <td>@(u.Role == "admin" ? "Admin" : "User")</td>
                         <td class="text-right">@u.ArchivedHours.ToString("0.0")</td>
                         <td class="text-right">@current.ToString("0.0")</td>
+                        <td>
+                        <input value="@u.BonusHours" @onchange="@(e=>BonusHasChanged(u,e))"/>
+                        </td>
                        <!--- <td class="text-right">@total.ToString("0.0")</td>-->
                         @if(showActions){
                         <td class="text-right">
@@ -83,16 +122,47 @@
 
 @code {
     private List<User> Users = new();
+    private readonly Dictionary<User, System.Timers.Timer> _debounceTimers = new();
+
     private List<TimeEntry> Entries = new();
     private string SearchTerm = "";
     private bool IsLoading = true;
     private bool showActions = false;
+    private bool showAddUser =false;
+    private string Name = "";
+    private string Email = "";
+
+    private bool newUserIsAdmin=false;
+     private string Error = "";
+    private string Success = "";
 
     [Inject] public NavigationManager Nav { get; set; } = default!;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadUsers();
+    }
+
+     private async Task AddUser()
+    {
+        Error = "";
+        Success = "";
+
+        try
+        {
+            var user = await UService.AddSingleUserAsync(Name, Email, newUserIsAdmin);
+
+            Success = $"Benutzer '{user.Name}' wurde hinzugefügt. Geheimcode: {user.SecretCode}";
+
+            // Felder leeren
+            Name = "";
+            Email = "";
+            newUserIsAdmin = false;
+        }
+        catch (Exception ex)
+        {
+            Error = ex.Message;
+        }
     }
 
     private async Task LoadUsers()
@@ -122,7 +192,46 @@
             .Sum(e => (e.CheckOut!.Value - e.CheckIn!.Value).TotalHours);
     }
 
-    
+    private async Task SecretCodeHasChanged(User u, ChangeEventArgs e){
+
+
+        u.SecretCode = e.Value?.ToString()??await UService.GenerateUniqueCodeAsync();
+        // Timer zur cksetzen oder neu anlegen
+        if (_debounceTimers.TryGetValue(u, out var timer))
+            timer.Stop();
+        else
+        {
+            timer = new System.Timers.Timer(600) { AutoReset = false };
+            timer.Elapsed += async (_, __) =>
+            {
+                Db.Users.Update(u);
+                await Db.SaveChangesAsync();
+            };
+            _debounceTimers[u] = timer;
+        }
+
+        timer.Start();
+    }
+    private async Task BonusHasChanged(User u, ChangeEventArgs e){
+
+
+        u.BonusHours = int.TryParse(e.Value?.ToString(),out var bonus)? bonus:0;
+        // Timer zur cksetzen oder neu anlegen
+        if (_debounceTimers.TryGetValue(u, out var timer))
+            timer.Stop();
+        else
+        {
+            timer = new System.Timers.Timer(600) { AutoReset = false };
+            timer.Elapsed += async (_, __) =>
+            {
+                Db.Users.Update(u);
+                await Db.SaveChangesAsync();
+            };
+            _debounceTimers[u] = timer;
+        }
+
+        timer.Start();
+    }
 
     private async Task MakeAdmin(User u)
     {
@@ -142,6 +251,11 @@
         if(showActions)showActions=false;
         else showActions=true;
     }
+    private void ShowAddUser(){
+        if(showAddUser)showAddUser=false;
+        else showAddUser=true;
+    }
+
     private async Task ExportCsv()
     {
         var sb = new StringBuilder();
