@@ -189,13 +189,13 @@
     {
         return Entries
             .Where(e => e.UserId == userId && e.CheckIn != null && e.CheckOut != null)
-            .Sum(e => (e.CheckOut!.Value - e.CheckIn!.Value).TotalHours);
+            .Sum(e => (e.DurationHours??0));
     }
 
     private async Task SecretCodeHasChanged(User u, ChangeEventArgs e){
 
 
-        u.SecretCode = e.Value?.ToString()??await UService.GenerateUniqueCodeAsync();
+        u.SecretCode = string.IsNullOrWhiteSpace(e.Value?.ToString())?await UService.GenerateUniqueCodeAsync():e.Value?.ToString();
         // Timer zur cksetzen oder neu anlegen
         if (_debounceTimers.TryGetValue(u, out var timer))
             timer.Stop();
