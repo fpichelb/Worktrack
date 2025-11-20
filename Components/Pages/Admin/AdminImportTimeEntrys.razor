@@ -1,0 +1,307 @@
+@page "/admin/import/timeentries"
+@layout AdminLayout
+@inject AppDbContext Db
+@inject NavigationManager Nav
+
+@rendermode InteractiveServer
+
+<h2>TimeEntry Import</h2>
+
+<div class="card">
+    <h3>1. Importmodus wählen</h3>
+
+    <InputRadioGroup @bind-Value="ImportMode">
+        <label>
+            <InputRadio Value='"simple"' /> Einfacher CSV-Import <br>(Name; Dauer in h; Datum)
+        </label>
+
+        <br />
+
+        <label>
+            <InputRadio Value='"advanced"' /> Erweiterter CSV-Import <br> (Name; Dauer in h; Datum;  Aufgabe;Username; Checkin; Checkout)
+        </label>
+    </InputRadioGroup>
+</div>
+
+
+<div class="card">
+    <h3>2. Event auswählen</h3>
+
+    <select class="form-control" @bind="SelectedEventId">
+        <option value="">-- Event wählen --</option>
+        @foreach (var ev in Events)
+        {
+            <option value="@ev.Id">@ev.Name (@(ev.IsActive ? "aktiv" : "inaktiv"))</option>
+        }
+    </select>
+</div>
+
+<div class="card">
+    <h3>3. CSV Datei hochladen</h3>
+
+    <InputFile OnChange="@OnFileSelected" accept=".csv" />
+
+    @if (!string.IsNullOrWhiteSpace(Error))
+    {
+        <p style="color:red;">@Error</p>
+    }
+</div>
+
+@if (Preview.Count > 0)
+{
+    <div class="card">
+        <h3>4. Vorschau & Import</h3>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Dauer</th>
+                    <th>Datum</th>
+                    <th>Task</th>
+                    <th>User</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var p in Preview)
+                {
+                    <tr>
+                        <td>@p.Name</td>
+                        <td>@p.Duration</td>
+                        <td>@p.Date.ToShortDateString()</td>
+                        <td>@(p.Task ?? "-")</td>
+                        <td>@(p.MatchedUser?.Name ?? "—")</td>
+                        <td>
+                            @if (p.MatchedUser == null)
+                            {
+                                <span class="badge" style="background:#ffcccc;">PENDING</span>
+                            }
+                            else
+                            {
+
+                                <span class="badge" style="background:#ccffcc;">OK</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <button class="btn btn-primary" @onclick="ImportNow">Import starten</button>
+    </div>
+}
+
+@code {
+    private List<Event> Events = new();
+    private List<User> Users = new();
+    private string ImportMode = "simple";
+    private string? SelectedEventId;
+    private string Error = "";
+    private List<PreviewEntry> Preview = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        Events = await Db.Events.OrderBy(e => e.Name).ToListAsync();
+        Users = await Db.Users.ToListAsync();
+    }
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+
+
+        Console.WriteLine("############" + ImportMode + "##############");
+        Error = "";
+        Preview.Clear();
+
+        if (SelectedEventId == null)
+        {
+            Error = "Bitte zuerst ein Event wählen.";
+            return;
+        }
+        try
+        {
+            using var reader = new StreamReader(e.File.OpenReadStream());
+            var content = await reader.ReadToEndAsync();
+            List<string>lines = content.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(x => x.Trim()).ToList();
+
+
+            if (lines.Count <= 1)
+            {
+                Error = "CSV enthält keine Daten.";
+                return;
+            }
+
+            if (ImportMode == "simple")
+                ParseSimple(lines);
+            else
+                ParseAdvanced(lines);
+        }catch (Exception ex)
+        {
+            Error = $"Fehler beim Lesen: {ex.Message}";
+        }
+
+    }
+
+    // ---------------- SIMPLE CSV -----------------
+    // Name,DurationHours,Date
+    private void ParseSimple(List<string> lines)
+    {
+        for (int i = 1; i < lines.Count; i++)
+        {
+            var line = lines[i].Trim();
+            if (string.IsNullOrWhiteSpace(line)) continue;
+
+            var parts = line.Split(';');
+
+            if (parts.Length < 3)
+            {
+                Error = $"Ungültige Zeile: {line}";
+                return;
+            }
+
+            string name = parts[0].Trim();
+            double duration = double.Parse(parts[1], System.Globalization.CultureInfo.InvariantCulture);
+            DateTime date = DateTime.Parse(parts[2]);
+
+            var user = FuzzyMatch(name);
+
+            Preview.Add(new PreviewEntry
+            {
+                Name = name,
+                Duration = duration,
+                Date = date,
+                Task = null,
+                MatchedUser = user
+            });
+        }
+    }
+
+    // ---------------- ADVANCED CSV -----------------
+    // Name,DurationHours,Date,Task,UserNameOverride,CheckIn,CheckOut
+    private void ParseAdvanced(List<string> lines)
+    {
+        for (int i = 1; i < lines.Count; i++)
+        {
+            var parts = lines[i].Split(';');
+
+            string name = parts.ElementAtOrDefault(0)?.Trim() ?? "";
+            double duration = parts.Length > 1 ? double.Parse(parts[1], System.Globalization.CultureInfo.InvariantCulture) : 0;
+            DateTime date = parts.Length > 2 ? DateTime.Parse(parts[2]) : DateTime.UtcNow;
+
+            string? task = parts.ElementAtOrDefault(3)?.Trim();
+            string? overrideName = parts.ElementAtOrDefault(4)?.Trim();
+
+            var matched = !string.IsNullOrWhiteSpace(overrideName)
+            ? Users.FirstOrDefault(u => u.Name.ToLower() == overrideName.ToLower())
+            : FuzzyMatch(name);
+
+            Preview.Add(new PreviewEntry
+            {
+                Name = name,
+                Duration = duration,
+                Date = date,
+                Task = string.IsNullOrWhiteSpace(task) ? null : task,
+                MatchedUser = matched
+            });
+        }
+    }
+
+    private async Task ImportNow()
+    {
+        int eventId = int.Parse(SelectedEventId!);
+
+        foreach (var p in Preview)
+        {
+            var checkIn = p.Date.Date.AddHours(9);
+            var checkOut = checkIn.AddHours(p.Duration);
+
+            var entry = new TimeEntry
+            {
+                EventId = eventId,
+                NameEntered = p.Name,
+                Task = p.Task,
+                CheckIn = checkIn,
+                CheckOut = checkOut,
+                DurationHours = p.Duration,
+                Status = p.MatchedUser == null ? "pending_assignment" : "checked_out",
+                UserId = p.MatchedUser?.Id,
+                UserName = p.MatchedUser?.Name
+            };
+
+            Db.TimeEntry.Add(entry);
+        }
+
+        await Db.SaveChangesAsync();
+
+        Nav.NavigateTo("/admin/import/timeentries", true);
+    }
+
+    // ---------------- FUZZY MATCHING -----------------
+    private User? FuzzyMatch(string name)
+    {
+        string n = name.ToLower();
+
+        var ranked = Users
+        .Select(u => new { User = u, Score = GetMatchScore(n, u.Name.ToLower()) })
+        .OrderByDescending(s => s.Score)
+        .ToList();
+
+        if (ranked.First().Score < -3) // schlechter Treffer
+            return null;
+
+        return ranked.First().User;
+    }
+
+    private double GetMatchScore(string a, string b)
+    {
+        double score = 0;
+
+        var dist = Levenshtein(a, b);
+        score -= dist;
+
+        if (b.Contains(a)) score += 6;
+
+        if (b.StartsWith(a)) score += 4;
+
+        var aParts = a.Split(' ');
+        var bParts = b.Split(' ');
+
+        foreach (var ap in aParts)
+            foreach (var bp in bParts)
+                if (bp.StartsWith(ap)) score += 3;
+
+        return score;
+    }
+
+    private int Levenshtein(string a, string b)
+    {
+        if (a.Length == 0) return b.Length;
+        if (b.Length == 0) return a.Length;
+
+        int[,] d = new int[a.Length + 1, b.Length + 1];
+
+        for (int i = 0; i <= a.Length; i++) d[i, 0] = i;
+        for (int j = 0; j <= b.Length; j++) d[0, j] = j;
+
+        for (int i = 1; i <= a.Length; i++)
+            for (int j = 1; j <= b.Length; j++)
+            {
+                int cost = a[i - 1] == b[j - 1] ? 0 : 1;
+                d[i, j] = Math.Min(
+                Math.Min(d[i - 1, j] + 1, d[i, j - 1] + 1),
+                d[i - 1, j - 1] + cost);
+            }
+
+        return d[a.Length, b.Length];
+    }
+
+    public class PreviewEntry
+    {
+        public string Name { get; set; } = "";
+        public double Duration { get; set; }
+        public DateTime Date { get; set; }
+        public string? Task { get; set; }
+        public User? MatchedUser { get; set; }
+    }
+}
