@@ -28,9 +28,9 @@
             var uri = new Uri(Nav.Uri);;
             var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
 
-            var time = query["time"];
+            time = query["time"];
             StateHasChanged();
-            
+            Console.WriteLine("Time ist  "+time);
         }else{
             await Task.Delay(5000);
             Nav.NavigateTo("/", true);

@@ -55,36 +55,42 @@
 
         <li class="nav-item">
             <a class="nav-link @(Active("users"))"
-                href="/admin/users">
+                href="@Link("/admin/users")">
                 Benutzer
             </a>
         </li>
 
         <li class="nav-item">
             <a class="nav-link @(Active("events"))"
-                href="/admin/events">
+                href="@Link("/admin/events")">
                 Events
             </a>
         </li>
 
         <li class="nav-item">
             <a class="nav-link @(Active("pending"))"
-               href="/admin/pending">
+               href="@Link("/admin/pending")">
                 Offene Einträge
             </a>
         </li>
 
         <li class="nav-item">
             <a class="nav-link @(Active("archive"))"
-                href="/admin/archive">
+                href="@Link("/admin/archive")">
                 Stunden archivieren
             </a>
         </li>
 
         <li class="nav-item">
             <a class="nav-link @(Active("import-users"))"
-                href="/admin/import-users">
+                href="@Link("/admin/import/users")">
                 User Import
+            </a>
+        </li>
+         <li class="nav-item">
+            <a class="nav-link @(Active("import-timeEntrys"))"
+                href="@Link("/admin/import/timeentries")">
+                Time Entry  Import
             </a>
         </li>
 

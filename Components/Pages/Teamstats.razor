@@ -182,7 +182,7 @@ else
         {
             var userEntries = Entries.Where(e => e.UserId == u.Id).ToList();
 
-            double totalHours = userEntries.Sum(e => (e.CheckOut!.Value - e.CheckIn!.Value).TotalHours);
+            double totalHours = userEntries.Sum(e => (e.DurationHours??0));
             int eventsVisited = userEntries.Select(e => e.EventId).Distinct().Count();
 
             var achievements = BuildAchievements(u, totalHours, eventsVisited);
