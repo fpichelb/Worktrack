@@ -47,8 +47,9 @@ public class TimeEntryService
 
         if (entry == null)
             return null;
+        var now = DateTime.UtcNow;
 
-        entry.CheckOut = DateTime.UtcNow;
+        entry.CheckOut = now;
 
 
         // Automatisches Matching erlaubt?
@@ -143,7 +144,7 @@ public class TimeEntryService
     public async Task<double> ArchiveUserHoursAsync(int userId)
     {
         var entries = await _db.TimeEntry
-            .Where(e => e.UserId == userId && e.IsArchived==false)
+            .Where(e => e.UserId == userId && e.IsArchived == false)
             .ToListAsync();
 
         var user = await _db.Users.FindAsync(userId);
@@ -155,9 +156,51 @@ public class TimeEntryService
         user.ArchivedHours += total;
 
         // Optional: mark entries as archived ? Up to you
-         foreach (var e in entries) e.IsArchived = true;
+        foreach (var e in entries) e.IsArchived = true;
 
         await _db.SaveChangesAsync();
         return total;
     }
+
+    public async Task<int> AutoCheckoutStaleEntriesAsync()
+    {
+        var now = DateTime.UtcNow;
+
+        // Hole alle offenen Einträge
+        var openEntries = await _db.TimeEntry
+            .Include(e => e.Event)
+            .Where(e => e.CheckOut == null)
+            .ToListAsync();
+
+        int count = 0;
+
+        foreach (var entry in openEntries)
+        {
+            if (entry.Event == null)
+                continue;
+
+            var defaultHours = entry.Event.DefaultHours;
+
+            if (defaultHours <= 0)
+                continue;
+
+            if ((now - entry.CheckIn)?.TotalHours < 24)
+                continue;
+
+            entry.CheckOut = DateTime.Now;
+            entry.DurationHours = defaultHours;
+
+            // Status korrekt setzen
+            entry.Status = entry.UserId != null ? "checked_out" : "pending_assignment";
+
+            count++;
+        }
+
+        if (count > 0)
+            await _db.SaveChangesAsync();
+
+        return count;
+    }
+
+
 }

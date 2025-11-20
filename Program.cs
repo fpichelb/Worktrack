@@ -31,6 +31,9 @@ builder.Services.AddScoped<TimeEntryService>()
                 .AddScoped<UserStatsService>()
                 .AddScoped<UserService>()
                 .AddScoped<EventService>();
+
+builder.Services.AddHostedService<AutoCheckoutHostedService>();
+
  builder.Services.AddSingleton<AppState>();
 
 

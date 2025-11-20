@@ -105,7 +105,7 @@ else
             Event = await Db.Events.FirstOrDefaultAsync(e => e.Id == eventId);
 
             if (Event == null) return;
-
+            if (!Event.IsActive) return;
             ActiveSession = await localStorage.GetItemAsync<LocalSession>("worktrack.ActiveSession");
 
             if (ActiveSession != null && ActiveSession.EventId == eventId)
