@@ -6,11 +6,11 @@ namespace Worktrack.Services;
 
 public class TimeEntryService
 {
-    private readonly AppDbContext _db;
+    private readonly AppDbContext Db;
 
     public TimeEntryService(AppDbContext db)
     {
-        _db = db;
+        Db = db;
     }
 
     // --------------------------------------------------------------------
@@ -27,8 +27,8 @@ public class TimeEntryService
             Status = "checked_in"
         };
 
-        _db.TimeEntry.Add(entry);
-        await _db.SaveChangesAsync();
+        Db.TimeEntry.Add(entry);
+        await Db.SaveChangesAsync();
 
         return entry;
     }
@@ -38,7 +38,7 @@ public class TimeEntryService
     // --------------------------------------------------------------------
     public async Task<TimeEntry?> CheckOutAsync(int eventId, string name)
     {
-        var entry = await _db.TimeEntry
+        var entry = await Db.TimeEntry
             .Where(e => e.EventId == eventId &&
                         e.NameEntered == name &&
                         e.CheckOut == null)
@@ -53,10 +53,10 @@ public class TimeEntryService
 
 
         // Automatisches Matching erlaubt?
-        var ev = await _db.Events.FindAsync(eventId);
+        var ev = await Db.Events.FindAsync(eventId);
         if (ev != null && ev.AutoMatchUsers)
         {
-            var user = await _db.Users
+            var user = await Db.Users
                 .FirstOrDefaultAsync(u => u.Name == name);
 
             if (user != null)
@@ -75,8 +75,8 @@ public class TimeEntryService
             entry.Status = "pending_assignment";
         }
 
-        _db.TimeEntry.Update(entry);
-        await _db.SaveChangesAsync();
+        Db.TimeEntry.Update(entry);
+        await Db.SaveChangesAsync();
 
         return entry;
     }
@@ -86,7 +86,7 @@ public class TimeEntryService
     // --------------------------------------------------------------------
     public async Task<List<TimeEntry>> GetAllEntriesAsync()
     {
-        return await _db.TimeEntry
+        return await Db.TimeEntry
             .Include(e => e.Event)
             .Include(e => e.UserName)
             .OrderByDescending(e => e.CheckIn)
@@ -98,7 +98,7 @@ public class TimeEntryService
     // --------------------------------------------------------------------
     public async Task<List<TimeEntry>> GetPendingAssignmentsAsync()
     {
-        return await _db.TimeEntry
+        return await Db.TimeEntry
             .Where(e => e.Status == "pending_assignment")
             .OrderByDescending(e => e.CheckIn)
             .ToListAsync();
@@ -109,11 +109,11 @@ public class TimeEntryService
     // --------------------------------------------------------------------
     public async Task<bool> AssignUserAsync(int entryId, int userId)
     {
-        var entry = await _db.TimeEntry.FindAsync(entryId);
+        var entry = await Db.TimeEntry.FindAsync(entryId);
         if (entry == null)
             return false;
 
-        var user = await _db.Users.FindAsync(userId);
+        var user = await Db.Users.FindAsync(userId);
         if (user == null)
             return false;
 
@@ -121,8 +121,8 @@ public class TimeEntryService
         entry.UserName = user.Name;
         entry.Status = entry.CheckOut.HasValue ? "checked_out" : "checked_in";
 
-        _db.TimeEntry.Update(entry);
-        await _db.SaveChangesAsync();
+        Db.TimeEntry.Update(entry);
+        await Db.SaveChangesAsync();
 
         return true;
     }
@@ -132,24 +132,25 @@ public class TimeEntryService
     // --------------------------------------------------------------------
     public async Task<List<TimeEntry>> GetEntriesForUserAsync(int userId)
     {
-        return await _db.TimeEntry
+        return await Db.TimeEntry
             .Where(e => e.UserId == userId)
             .OrderByDescending(e => e.CheckIn)
             .ToListAsync();
     }
-
+    public async Task<List<TimeEntry>> GetAllNotArchivedEntriesAsync()
+    {
+        return await Db.TimeEntry
+        .Where(e => e.CheckIn != null && e.CheckOut != null && !e.IsArchived)
+        .ToListAsync();
+    }
     // --------------------------------------------------------------------
     // ARCHIVE HOURS (optional)
     // --------------------------------------------------------------------
-    public async Task<double> ArchiveUserHoursAsync(int userId)
+    public async Task<double> ArchiveUserHoursAsync(User user)
     {
-        var entries = await _db.TimeEntry
-            .Where(e => e.UserId == userId && e.IsArchived == false)
+        var entries = await Db.TimeEntry
+            .Where(e => e.UserId == user.Id && e.IsArchived == false)
             .ToListAsync();
-
-        var user = await _db.Users.FindAsync(userId);
-        if (user == null)
-            return 0;
 
         double total = entries.Sum(e => e.DurationHours ?? 0);
 
@@ -158,8 +159,52 @@ public class TimeEntryService
         // Optional: mark entries as archived ? Up to you
         foreach (var e in entries) e.IsArchived = true;
 
-        await _db.SaveChangesAsync();
+        await Db.SaveChangesAsync();
         return total;
+    }
+    public async Task<ArchiveResult> ArchiveAllUsersAsync()
+    {
+        var users = await Db.Users.ToListAsync();
+        var entries = await Db.TimeEntry
+        .Where(e => e.CheckOut != null && !e.IsArchived)
+        .ToListAsync();
+
+        int archivedEntries = 0;
+        double totalArchivedHours = 0;
+
+        foreach (var user in users)
+        {
+            var userEntries = entries.Where(e => e.UserId == user.Id);
+
+            double userHours = userEntries
+            .Sum(e => e.DurationHours ?? 0);
+
+            if (userHours > 0)
+            {
+                user.ArchivedHours += userHours;
+                archivedEntries += userEntries.Count();
+                totalArchivedHours += userHours;
+            }
+        }
+
+        // Mark entries as archived
+        foreach (var entry in entries)
+        {
+            entry.IsArchived = true;
+        }
+
+        await Db.SaveChangesAsync();
+
+        return new ArchiveResult
+        {
+            TotalEntries = archivedEntries,
+            TotalHours = totalArchivedHours
+        };
+    }
+    public class ArchiveResult
+    {
+        public int TotalEntries { get; set; }
+        public double TotalHours { get; set; }
     }
 
     public async Task<int> AutoCheckoutStaleEntriesAsync()
@@ -167,7 +212,7 @@ public class TimeEntryService
         var now = DateTime.UtcNow;
 
         // Hole alle offenen Einträge
-        var openEntries = await _db.TimeEntry
+        var openEntries = await Db.TimeEntry
             .Include(e => e.Event)
             .Where(e => e.CheckOut == null)
             .ToListAsync();
@@ -197,7 +242,7 @@ public class TimeEntryService
         }
 
         if (count > 0)
-            await _db.SaveChangesAsync();
+            await Db.SaveChangesAsync();
 
         return count;
     }

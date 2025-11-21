@@ -6,11 +6,11 @@ namespace Worktrack.Services
 {
     public class UserService
     {
-        private readonly AppDbContext _db;
+        private readonly AppDbContext Db;
 
         public UserService(AppDbContext db)
         {
-            _db = db;
+            Db = db;
         }
 
         // ---------------------------------------------------------
@@ -23,7 +23,7 @@ namespace Worktrack.Services
             {
                 code = Guid.NewGuid().ToString("N")[..6].ToUpper();
             }
-            while (await _db.Users.AnyAsync(u => u.SecretCode == code));
+            while (await Db.Users.AnyAsync(u => u.SecretCode == code));
 
             return code;
         }
@@ -47,8 +47,8 @@ namespace Worktrack.Services
                 ShareStats = false
             };
 
-            _db.Users.Add(user);
-            await _db.SaveChangesAsync();
+            Db.Users.Add(user);
+            await Db.SaveChangesAsync();
 
             return user;
         }
@@ -56,19 +56,19 @@ namespace Worktrack.Services
         // ---------------------------------------------------------
         // Make User Admin
         // ---------------------------------------------------------
-        public async Task<bool> SetAdminAsync(int id, bool admin)
+        public async Task<bool> SetAdminAsync(int userid, bool admin)
         {
-            var user = await _db.Users.FindAsync(id);
+            var user = await Db.Users.FindAsync(userid);
             if (user == null) return false;
 
             user.Role = admin ? "admin" : "user";
-            await _db.SaveChangesAsync();
+            await Db.SaveChangesAsync();
             return true;
         }
-
         public async Task<List<User>> GetAllAsync()
         {
-            return await _db.Users.OrderBy(u => u.Name).ToListAsync();
+            return await Db.Users.OrderBy(u => u.Name).ToListAsync();
         }
+        
     }
 }

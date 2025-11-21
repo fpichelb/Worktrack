@@ -1,70 +1,97 @@
 @page "/admin/archive"
 @using Microsoft.EntityFrameworkCore
 @layout AdminLayout
+@rendermode InteractiveServer
 
-@inject AppDbContext Db
+@inject UserService Uservice
+@inject TimeEntryService TEservice
+
 
 <h2>Stunden archivieren</h2>
 
 <div class="card">
-    <p>Hier kannst du die seit dem letzten Archiv gesammelten Stunden der Nutzer endgültig verbuchen.</p>
-
-    @if (Rows == null)
-    {
-        <p>Lade…</p>
-    }
-    else if (!Rows.Any())
-    {
-        <p>Keine Stunden zum Archivieren gefunden.</p>
-    }
-    else
-    {
-        <table>
-            <thead>
+    <div class="Event-grid">
+        <div>
+        <p>Hier kannst du die seit dem letzten Archiv gesammelten Stunden der Nutzer endgÃ¼ltig verbuchen.</p>
+        </div>
+        <div>
+        </div>
+        <div>
+        @if (!Confirm)
+        {
+            <button class="btn btn-danger" @onclick="() => Confirm = true">Alle Nutzer archivieren</button>
+        }
+        else
+        {
+            <div>
+                <strong>Bist du sicher?</strong><br />
+                <button class="btn btn-success" @onclick="ArchiveAll">Ja, archivieren</button>
+                <button class="btn btn-secondary" @onclick="() => Confirm = false">Abbrechen</button>
+            </div>
+        }
+        
+        </div>
+        @if (Result != null)
+{
+    <div class="alert alert-success" style="margin-top:1rem;">
+        Archiviert: @Result.TotalEntries EintrÃ¤ge  
+        <br />
+        Summe: @Result.TotalHours Stunden
+    </div>
+}
+    </div>
+@if (Rows == null)
+{
+    <p>Ladeï¿½</p>
+}
+else if (!Rows.Any())
+{
+    <p>Keine Stunden zum Archivieren gefunden.</p>
+}
+else
+{
+    <table>
+        <thead>
+            <tr>
+                <th>Nutzer</th>
+                <th class="text-right">Aktuelle Stunden</th>
+                <th class="text-right">Bereits archiviert</th>
+                <th class="text-right">Neu gesamt</th>
+                <th class="text-right">Aktion</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var r in Rows)
+            {
                 <tr>
-                    <th>Nutzer</th>
-                    <th class="text-right">Aktuelle Stunden</th>
-                    <th class="text-right">Bereits archiviert</th>
-                    <th class="text-right">Neu gesamt</th>
-                    <th class="text-right">Aktion</th>
+                    <td>@r.User.Name</td>
+                    <td class="text-right">@r.CurrentHours.ToString("0.0")</td>
+                    <td class="text-right">@r.User.ArchivedHours.ToString("0.0")</td>
+                    <td class="text-right">@(r.User.ArchivedHours + r.CurrentHours).ToString("0.0")</td>
+                    <td class="text-right">
+                        <button class="btn secondary" @onclick="() => ArchiveRow(r)">Archivieren</button>
+                    </td>
                 </tr>
-            </thead>
-            <tbody>
-                @foreach (var r in Rows)
-                {
-                    <tr>
-                        <td>@r.User.Name</td>
-                        <td class="text-right">@r.CurrentHours.ToString("0.0")</td>
-                        <td class="text-right">@r.User.ArchivedHours.ToString("0.0")</td>
-                        <td class="text-right">@(r.User.ArchivedHours + r.CurrentHours).ToString("0.0")</td>
-                        <td class="text-right">
-                            <button class="btn secondary" @onclick="() => ArchiveUser(r)">Archivieren</button>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    }
+            }
+        </tbody>
+    </table>
+}
 </div>
 
 @code {
     private List<RowModel>? Rows;
+    bool Confirm = false;
 
     protected override async Task OnInitializedAsync()
     {
-        var users = await Db.Users
-            .Where(u => u.Role != "admin")
-            .ToListAsync();
-
-        var entries = await Db.TimeEntry
-            .Where(e => e.CheckIn != null && e.CheckOut != null && !e.IsArchived)
-            .ToListAsync();
+        var users = await Uservice.GetAllAsync();
+        var entries = await TEservice.GetAllNotArchivedEntriesAsync();
 
         Rows = users.Select(u =>
         {
             var cur = entries
-                .Where(e => e.UserId == u.Id)
-                .Sum(e => (e.CheckOut!.Value - e.CheckIn!.Value).TotalHours);
+    .Where(e => e.UserId == u.Id)
+    .Sum(e => (e.CheckOut!.Value - e.CheckIn!.Value).TotalHours);
 
             return new RowModel
             {
@@ -77,29 +104,25 @@
         .ToList();
     }
 
-    private async Task ArchiveUser(RowModel row)
-    {
-        // aktuelle Stunden zu ArchivedHours addieren
-        row.User.ArchivedHours += row.CurrentHours;
-
-        // zugehörige Einträge als archiviert markieren
-        var userEntries = await Db.TimeEntry
-            .Where(e => e.UserId == row.User.Id && e.CheckIn != null && e.CheckOut != null && !e.IsArchived)
-            .ToListAsync();
-
-        foreach (var e in userEntries)
-        {
-            e.IsArchived = true;
-        }
-
-        await Db.SaveChangesAsync();
-
-        Rows?.Remove(row);
-    }
 
     private class RowModel
     {
         public User User { get; set; } = default!;
         public double CurrentHours { get; set; }
     }
+    private TimeEntryService.ArchiveResult? Result;
+
+    private async Task ArchiveRow(RowModel r){
+        await TEservice.ArchiveUserHoursAsync(r.User);
+        StateHasChanged();
+    }
+    private async Task ArchiveAll()
+    {
+        Result = await TEservice.ArchiveAllUsersAsync();
+        StateHasChanged();
+    }
+
+
+    
+
 }

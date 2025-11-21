@@ -159,7 +159,7 @@ else
     private async Task LoadStats()
     {
         UserEntries = await Db.TimeEntry
-        .Where(e => e.UserId == CurrentUser!.Id && e.CheckOut != null)
+        .Where(e => e.UserId == CurrentUser!.Id && e.CheckOut != null&&e.IsArchived==false)
         .Include(e => e.Event)
         .ToListAsync();
 
