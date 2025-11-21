@@ -24,7 +24,7 @@ else
         <!-- USER HOURS SUMMARY -->
         <div class="card">
             <h3>Deine Statistik</h3>
-
+            <div class="table-responsive">
             <table class="info-table">
                 <tr>
                     <td><strong>Bonusstunden:</strong></td>
@@ -39,22 +39,23 @@ else
                     <td>@EventsVisited</td>
                 </tr>
             </table>
+            </div>
         </div>
 
         <!-- TEAM COMPARISON OPT-IN -->
         <div class="card">
             <h3>Teamvergleich</h3>
+            
             <p>Wenn du zustimmst, erscheinst du im Teamranking und kannst deine Leistungen mit anderen vergleichen.</p>
-
+            <label for="sharestats" style="display:flex;  justify-content: center; margin-right:1rem;">Ich möchte am Teamvergleich teilnehmen</label>
             <label style="display:flex; align-items:center; gap:0.5rem;">
-                <input type="checkbox"  
+                 
+                <input type="checkbox" id="sharestats" 
                 checked="@CurrentUser.ShareStats"
                 @onchange="(e=>saveStats(e))" />
-
-                <span>Ich möchte am Teamvergleich teilnehmen</span>
             </label>
 
-            <div style="margin-top:1rem;">
+            <div style="margin-top:1rem;justify-content: center;display:flex;">
                 @if (CurrentUser.ShareStats == true)
                 {
                     <a class="btn btn-primary" href="/teamstats?code=@CurrentUser.SecretCode">
@@ -79,7 +80,7 @@ else
                 <p>Du hast bisher an keinen Events teilgenommen.</p>
             }
             else
-            {
+            {<div class="table-responsive">
                 <table>
                     <thead>
                         <tr>
@@ -101,6 +102,7 @@ else
                         }
                     </tbody>
                 </table>
+                </div>
             }
         </div>
 

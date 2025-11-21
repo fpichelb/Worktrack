@@ -21,7 +21,7 @@
     @if (Imported.Any())
     {
         <button class="btn mt-4" @onclick="SaveImported">Speichern (@Imported.Count)</button>
-
+        <div class="table-responsive">
         <table class="mt-4">
             <thead>
                 <tr>
@@ -45,6 +45,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 

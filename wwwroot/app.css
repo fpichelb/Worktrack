@@ -307,6 +307,132 @@ input[type="date"]{
   opacity: 0.7;
 }
 
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.layout {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Smartphones (max 600px) */
+@media (max-width: 600px) {
+
+  .btn-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+  body {
+      font-size: 14px;
+      padding: 0;
+      margin: 0;
+  }
+  header h1 {
+    font-size: 1.4rem;
+    text-align: center;
+}
+header {
+  padding: 10px;
+}
+
+  h1 {
+      font-size: 1.6rem;
+  }
+
+  h2 {
+      font-size: 1.4rem;
+  }
+
+  h3 {
+      font-size: 1.2rem;
+  }
+
+  .container {
+      padding: 10px;
+      max-width: 100%;
+  }
+
+  /* Buttons */
+  .btn,
+  .btn-primary,
+  .btn-danger,
+  .btn-secondary {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      margin-top: 8px;
+  }
+
+  /* Header Navigation */
+  header nav {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      text-align: center;
+  }
+
+  header nav a {
+      display: block;
+      padding: 6px 0;
+      font-size: 15px;
+  }
+
+  /* Cards */
+  .card {
+      padding: 15px;
+      border-radius: 10px;
+  }
+
+  /* Tables scrollbar */
+  table {
+      font-size: 14px;
+      width: 100%;
+  }
+  .table-responsive {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+  }
+
+  /* Inputs */
+  input,
+  select,
+  textarea {
+      width: 100%;
+      font-size: 15px;
+      padding: 10px !important;
+  }
+  
+  .form-control {
+      width: 100%;
+      padding: 12px;
+      font-size: 15px;
+  }
+
+  /* QR Container */
+  .qr-container {
+      width: 100% !important;
+      text-align: center;
+  }
+
+  qr-code {
+    width: 180px !important;
+    height: 180px !important;
+    margin: 0 auto;
+}
+
+.event-card {
+    text-align: center;
+    padding: 15px;
+}  
+}
+
+
 @media (max-width: 700px) {
   .event-grid {
       grid-template-columns: 1fr;
@@ -314,4 +440,34 @@ input[type="date"]{
   input[type="date"]{
     width : 150px;
   }
+}
+
+@media (max-width: 900px) {
+
+  h1 {
+      font-size: 2rem;
+  }
+
+  .container {
+      padding: 15px;
+  }
+
+  .card {
+      padding: 20px;
+  }
+
+  header nav {
+      gap: 10px;
+  }
+
+  table {
+      font-size: 15px;
+  }
+
+  .btn {
+      padding: 10px 14px;
+      font-size: 15px;
+  }
+  
+
 }
