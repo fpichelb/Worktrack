@@ -8,14 +8,16 @@ public static class QrHelper
     public static Task<string> GeneratePngBase64(string text)
     {
         using var generator = new QRCodeGenerator();
-        using var data = generator.CreateQrCode(text, QRCodeGenerator.ECCLevel.M);
-        using var code = new QRCode(data);
-        using var bmp = code.GetGraphic(20);
+        using var data = generator.CreateQrCode(text, QRCodeGenerator.ECCLevel.Q);
 
-        using var ms = new MemoryStream();
-        bmp.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
-        var base64 = $"data:image/png;base64,{Convert.ToBase64String(ms.ToArray())}";
+        var qrCode = new PngByteQRCode(data);
+        byte[] bytes = qrCode.GetGraphic(20); // 20 = Größe (kannst du anpassen)
 
-        return Task.FromResult(base64);
+        var base64 = Convert.ToBase64String(bytes);
+
+        // Wenn du das direkt im <img>-Tag verwenden willst:
+        var dataUrl = $"data:image/png;base64,{base64}";
+
+        return Task.FromResult(dataUrl);
     }
 }
