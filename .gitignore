@@ -6,3 +6,4 @@ k/.idea/
 /wwwroot/lib/bootstrap
 appsettings.json
 .DS_Store
+appsettings.Development.json
