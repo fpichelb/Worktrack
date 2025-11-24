@@ -42,7 +42,7 @@
     </div>
 @if (Rows == null)
 {
-    <p>Lade�</p>
+    <p>Lade...</p>
 }
 else if (!Rows.Any())
 {
@@ -67,7 +67,7 @@ else
                     <td>@r.User.Name</td>
                     <td class="text-right">@r.CurrentHours.ToString("0.0")</td>
                     <td class="text-right">@r.User.ArchivedHours.ToString("0.0")</td>
-                    <td class="text-right">@(r.User.ArchivedHours + r.CurrentHours).ToString("0.0")</td>
+                    <td class="text-right">@((r.User.ArchivedHours + r.CurrentHours).ToString("0.0"))</td>
                     <td class="text-right">
                         <button class="btn secondary" @onclick="() => ArchiveRow(r)">Archivieren</button>
                     </td>
