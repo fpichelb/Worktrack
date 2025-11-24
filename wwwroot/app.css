@@ -7,6 +7,24 @@
     --gray-dark: #374151;
     --radius: 8px;
   }
+  .month-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 6px;
+    margin-bottom: 10px;
+    justify-content: start;
+}
+
+.month-grid label {
+  display: flex;
+  justify-self: start !important;
+  gap: 6px;
+  background: #f7f7f7;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
 
   .notfound-container {
     min-height: 80vh;
@@ -317,6 +335,32 @@ input[type="date"]{
 .layout {
   max-width: 100%;
   overflow-x: hidden;
+}
+.season-card {
+  background: #ffffff;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.season-card:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  transform: translateY(-3px);
+}
+
+.season-title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+  color: #333;
+}
+
+.season-subtitle {
+  font-size: 0.95rem;
+  color: #777;
+  margin-bottom: 15px;
 }
 
 /* Smartphones (max 600px) */

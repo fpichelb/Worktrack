@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Worktrack.Models;
 
@@ -13,6 +14,8 @@ public class AppDbContext : DbContext
     public DbSet<User> Users { get; set; }
     public DbSet<Event> Events { get; set; }
     public DbSet<TimeEntry> TimeEntry { get; set; }
+
+    public DbSet<Season> Seasons {get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

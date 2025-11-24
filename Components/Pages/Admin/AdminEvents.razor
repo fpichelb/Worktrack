@@ -2,7 +2,7 @@
 @layout AdminLayout
 
 @using Microsoft.EntityFrameworkCore
-@inject AppDbContext Db
+@inject EventService EService
 @inject NavigationManager Nav
 @rendermode InteractiveServer
 
@@ -79,7 +79,7 @@
                 @foreach (var e in Events)
                 {
                     <tr>
-                        <td>@e.Name</td>
+                        <td><InputText @bind-value="e.Name" @bind-value:after="()=>Save(e)"/></td>
                         <td>@e.Location</td>
                         <td>
                             @if (QrCache.ContainsKey(e.Id))
@@ -94,7 +94,7 @@
                                 QR groß
                             </button>
                         </td>
-                        <td>@(e.AutoMatchUsers ? "Ja" : "Nein")</td>
+                        <td><InputCheckbox @bind-Value="e.AutoMatchUsers" @bind-Value:after="()=>Save(e)"/></td>
                         <td>@(e.IsActive ? "Ja" : "Nein")</td>
                         <td class="text-right">
                             <button class="btn secondary" style="margin-right:0.5rem;" @onclick="() => ToggleActive(e)">
@@ -145,9 +145,7 @@
     protected override async Task OnInitializedAsync()
     {
         NewEvent.StartTime = DateTime.Today;
-        Events = await Db.Events
-            .OrderByDescending(e => e.Id)
-            .ToListAsync();
+        Events = await EService.GetAllEventsAsync();
 
         foreach (var e in Events)
         {
@@ -155,7 +153,9 @@
             QrCache[e.Id] = await QrHelper.GeneratePngBase64(url);
         }
     }
-
+    private async Task Save(Event e){
+       await EService.UpdateEventAsync(e);
+    }
     private async Task CreateEvent()
     {
         if (string.IsNullOrWhiteSpace(NewEvent.Name) || string.IsNullOrWhiteSpace(NewEvent.Location))
@@ -164,9 +164,7 @@
        
         NewEvent.IsActive = true;
 
-        Db.Events.Add(NewEvent);
-        await Db.SaveChangesAsync();
-
+        await EService.CreateEventAsync(NewEvent);
         StateHasChanged();
         NewEvent = new();
     }
@@ -174,14 +172,15 @@
     private async Task ToggleActive(Event e)
     {
         e.IsActive = !e.IsActive;
-        await Db.SaveChangesAsync();
+        await EService.UpdateEventAsync(e);
     }
 
     private async Task DeleteEvent(Event e)
     {
-        Db.Events.Remove(e);
-        await Db.SaveChangesAsync();
+        
+        await EService.DeleteEventAsync(e.Id);
         Events?.Remove(e);
+
     }
 
     private void ShowLargeQR(int eventId)

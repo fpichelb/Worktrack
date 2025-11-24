@@ -1,0 +1,100 @@
+@page "/admin/seasons"
+@inject SeasonService seasonService
+@rendermode InteractiveServer
+@layout AdminLayout
+
+<h2>Season Verwaltung</h2>
+
+<div class="card">
+    <h3>Season hinzufügen</h3>
+
+    <input class="form-control" placeholder="Name" @bind="NewSeason.Name" />
+
+    <input class="form-control" placeholder="Snippet (optional)" 
+           @bind="NewSeason.Snippet" />
+
+    <label>Monate:</label>
+    <div class="month-grid">
+        @for (int m = 1; m <= 12; m++)
+        {
+            var month=m;
+            <label>
+                <input type="checkbox" @onchange="(e => ToggleMonth(month, e))" />
+                @System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(m)
+            </label>
+        }
+    </div>
+
+    <button class="btn-primary" @onclick="AddSeason">Season speichern</button>
+</div>
+
+<br />
+
+<div class="card">
+    <h3>Bestehende Seasons</h3>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Snippet</th>
+                <th>Monate</th>
+                <th>Aktion</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var s in Seasons)
+            {
+                <tr>
+                    <td>@s.Name</td>
+                    <td>@(s.Snippet ?? "-")</td>
+                    <td>
+                        @string.Join(", ", s.MonthList.Select(m =>
+                            System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(m)
+                        ))
+                    </td>
+                    <td>
+                        <button class="btn-danger" @onclick="() => DeleteSeason(s)">Löschen</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    private List<Season> Seasons = new();
+    private Season NewSeason = new();
+    private List<int> NewMonths = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        Seasons = await seasonService.GetAllAsync();
+    }
+
+    private void ToggleMonth(int month, ChangeEventArgs e)
+    {
+        if ((bool)e.Value!)
+            NewMonths.Add(month);
+        else
+            NewMonths.Remove(month);
+
+        NewSeason.Months = string.Join(",", NewMonths.OrderBy(x => x));
+    }
+
+    private async Task AddSeason()
+    {
+        if (string.IsNullOrWhiteSpace(NewSeason.Name))
+            return;
+
+        await seasonService.CreateAsync(NewSeason);
+        NewSeason = new Season();
+        StateHasChanged();
+    }
+
+    private async Task DeleteSeason(Season s)
+    {
+        await seasonService.DeleteAsync(s.Id);
+        Seasons.Remove(s);
+    }
+}

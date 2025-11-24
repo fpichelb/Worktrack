@@ -30,6 +30,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<TimeEntryService>()
                 .AddScoped<UserStatsService>()
                 .AddScoped<UserService>()
+                .AddScoped<SeasonService>()
                 .AddScoped<EventService>();
 
 builder.Services.AddHostedService<AutoCheckoutHostedService>();
