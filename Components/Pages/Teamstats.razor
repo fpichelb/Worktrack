@@ -33,7 +33,7 @@ else
                             <td>@u.Rank</td>
                             <td>@u.Name</td>
                             <td>@u.EventsVisited</td>
-                            <td>@((u.TotalHours + u.Bonus).ToString("0.0")) h</td>
+                            <td>@((u.TotalHours).ToString("0.0")) h</td>
                             <td>
                                 @foreach (var a in u.Achievements)
                                 {
@@ -177,7 +177,7 @@ else
             int eventsVisited = userEntries.Where(e => e.IsArchived == false).Select(e => e.EventId).Distinct().Count();
 
             var achievements = BuildAchievements(u, totalHours, eventsVisited);
-
+            totalHours += u.BonusHours;
             GlobalStats.Add(new GlobalUserStats
             {
                 Id = u.Id,
