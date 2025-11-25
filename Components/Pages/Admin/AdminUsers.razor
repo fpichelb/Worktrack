@@ -18,7 +18,7 @@
         </div>
         <div>
             <a class="btn secondary" style="margin-right:0.5rem;" href="/admin/import-users">User Import</a>
-            <button class="btn" style="margin-right:0.5rem;" @onclick="ShowAktionen">Show Aktionen</button>
+            <button class="btn" style="margin-right:0.5rem;" @onclick="ShowDetails">Show Details</button>
             <button class="btn" style="margin-right:0.5rem;" @onclick="ShowAddUser">Show AddUser</button>
             <button class="btn" @onclick="ExportCsv">CSV Export</button>
         </div>
@@ -74,14 +74,14 @@
             <thead>
                 <tr>
                     <th>Name</th>
-                    <th>E-Mail</th>
+                   @if(showDetails){ <th>E-Mail</th>}
                     <th>Secret Code</th>
-                    <th>Rolle</th>
-                    <th class="text-right">Archiv-Stunden</th>
+                     @if(showDetails){<th>Rolle</th>
+                    <th class="text-right">Archiv-Stunden</th>}
                     <th class="text-right">Aktuelle Stunden</th>
                    <!--- <th class="text-right">Gesamt</th>--->
                    <th class="text-left">Bonus</th>
-                    @if(showActions){
+                    @if(showDetails){
                     <th class="text-right">Aktionen</th>}
                 </tr>
             </thead>
@@ -91,20 +91,20 @@
                     var current = GetCurrentHours(u.Id);
                     //var total = u.ArchivedHours + current;
 
-                    <tr>
-                        <td>@u.Name</td>
-                        <td>@u.Email</td>
+                    <tr><td>
+                        @if(showDetails){<InputText @bind-Value="u.Name" @bind-Value:after="()=> Save(u)"/>}else{@u.Name}</td>
+                        @if(showDetails){<td>@u.Email</td>}
                         <td>
-                        <input value="@u.SecretCode" @onchange="@(e=>SecretCodeHasChanged(u,e))"/>
+                        @if(showDetails){<InputText @bind-Value="u.SecretCode" @bind-Value:after="()=> Save(u)"/>}else{@u.SecretCode}
                         </td>
-                        <td>@(u.Role == "admin" ? "Admin" : "User")</td>
-                        <td class="text-right">@u.ArchivedHours.ToString("0.0")</td>
+                         @if(showDetails){<td>@(u.Role == "admin" ? "Admin" : "User")</td>
+                        <td class="text-right">@u.ArchivedHours.ToString("0.0")</td>}
                         <td class="text-right">@current.ToString("0.0")</td>
                         <td>
-                        <input value="@u.BonusHours" @onchange="@(e=>BonusHasChanged(u,e))"/>
+                        <InputNumber @bind-Value="u.BonusHours" @bind-Value:after="()=> Save(u)" />
                         </td>
                        <!--- <td class="text-right">@total.ToString("0.0")</td>-->
-                        @if(showActions){
+                        @if(showDetails){
                         <td class="text-right">
                             @if (u.Role != "admin")
                             {
@@ -128,7 +128,7 @@
     private List<TimeEntry> Entries = new();
     private string SearchTerm = "";
     private bool IsLoading = true;
-    private bool showActions = false;
+    private bool showDetails = false;
     private bool showAddUser =false;
     private string Name = "";
     private string Email = "";
@@ -193,45 +193,9 @@
             .Sum(e => (e.DurationHours??0));
     }
 
-    private async Task SecretCodeHasChanged(User u, ChangeEventArgs e){
-
-
-        u.SecretCode = string.IsNullOrWhiteSpace(e.Value?.ToString())?await UService.GenerateUniqueCodeAsync():e.Value?.ToString();
-        // Timer zur cksetzen oder neu anlegen
-        if (_debounceTimers.TryGetValue(u, out var timer))
-            timer.Stop();
-        else
-        {
-            timer = new System.Timers.Timer(600) { AutoReset = false };
-            timer.Elapsed += async (_, __) =>
-            {
-                Db.Users.Update(u);
-                await Db.SaveChangesAsync();
-            };
-            _debounceTimers[u] = timer;
-        }
-
-        timer.Start();
-    }
-    private async Task BonusHasChanged(User u, ChangeEventArgs e){
-
-
-        u.BonusHours = int.TryParse(e.Value?.ToString(),out var bonus)? bonus:0;
-        // Timer zur cksetzen oder neu anlegen
-        if (_debounceTimers.TryGetValue(u, out var timer))
-            timer.Stop();
-        else
-        {
-            timer = new System.Timers.Timer(600) { AutoReset = false };
-            timer.Elapsed += async (_, __) =>
-            {
-                Db.Users.Update(u);
-                await Db.SaveChangesAsync();
-            };
-            _debounceTimers[u] = timer;
-        }
-
-        timer.Start();
+    private async Task Save(User u){
+        await Db.SaveChangesAsync();
+        await LoadUsers();
     }
 
     private async Task MakeAdmin(User u)
@@ -248,9 +212,9 @@
         await LoadUsers();
     }
 
-    private void ShowAktionen(){
-        if(showActions)showActions=false;
-        else showActions=true;
+    private void ShowDetails(){
+        if(showDetails)showDetails=false;
+        else showDetails=true;
     }
     private void ShowAddUser(){
         if(showAddUser)showAddUser=false;
