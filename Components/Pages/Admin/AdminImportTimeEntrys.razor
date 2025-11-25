@@ -1,14 +1,32 @@
 @page "/admin/import/timeentries"
+@using System.Threading.Tasks.Dataflow
 @layout AdminLayout
+@inject TimeEntryService TEService
 @inject AppDbContext Db
 @inject NavigationManager Nav
 
 @rendermode InteractiveServer
 
 <h2>TimeEntry Import</h2>
-
+    <div class="card">
+    <p>@lastImport</p>
+    @if (!Confirm)
+        {
+    <button class="btn btn-danger" @onclick="() => Confirm = true">
+    Letzten Import rückgängig machen
+    </button>
+    }else
+        {
+            <div>
+                <strong>Bist du sicher?</strong><br />
+                <button class="btn btn-success" @onclick="UndoLastImport">Ja, rückgängig machen</button>
+                <button class="btn btn-secondary" @onclick="() => Confirm = false">Abbrechen</button>
+            </div>
+        }
+</div>
 <div class="card">
     <h3>1. Importmodus wählen</h3>
+    
 
     <InputRadioGroup @bind-Value="ImportMode">
         <label>
@@ -18,7 +36,8 @@
         <br />
 
         <label>
-            <InputRadio Value='"advanced"' /> Erweiterter CSV-Import <br> (Name; Dauer in h; Datum;  Aufgabe;Username; Checkin; Checkout)
+            <InputRadio Value='"advanced"' /> Erweiterter CSV-Import <br> (Name; Dauer in h; Datum; Aufgabe;Username;
+            Checkin; Checkout)
         </label>
     </InputRadioGroup>
 </div>
@@ -45,48 +64,58 @@
     {
         <p style="color:red;">@Error</p>
     }
+    
 </div>
 
+@if (SuccessCount + DuplicateCount > 0)
+{
+    <div class="card">
+        <h3>Import Zusammenfassung</h3>
+        <p>Neu hinzugefügt: @SuccessCount</p>
+        <p>Übersprungen (Duplicate): @DuplicateCount</p>
+        <p style="color:red;">Seite wird in 3 Sekunden neu geladen</p>
+    </div>
+}
 @if (Preview.Count > 0)
 {
     <div class="card">
         <h3>4. Vorschau & Import</h3>
         <div class="table-responsive">
-        <table>
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Dauer</th>
-                    <th>Datum</th>
-                    <th>Task</th>
-                    <th>User</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var p in Preview)
-                {
+            <table>
+                <thead>
                     <tr>
-                        <td>@p.Name</td>
-                        <td>@p.Duration</td>
-                        <td>@p.Date.ToShortDateString()</td>
-                        <td>@(p.Task ?? "-")</td>
-                        <td>@(p.MatchedUser?.Name ?? "—")</td>
-                        <td>
-                            @if (p.MatchedUser == null)
-                            {
-                                <span class="badge" style="background:#ffcccc;">PENDING</span>
-                            }
-                            else
-                            {
-
-                                <span class="badge" style="background:#ccffcc;">OK</span>
-                            }
-                        </td>
+                        <th>Name</th>
+                        <th>Dauer</th>
+                        <th>Datum</th>
+                        <th>Task</th>
+                        <th>User</th>
+                        <th>Status</th>
                     </tr>
-                }
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    @foreach (var p in Preview)
+                    {
+                        <tr>
+                            <td>@p.Name</td>
+                            <td>@p.Duration</td>
+                            <td>@p.Date.ToShortDateString()</td>
+                            <td>@(p.Task ?? "-")</td>
+                            <td>@(p.MatchedUser?.Name ?? "—")</td>
+                            <td>
+                                @if (p.MatchedUser == null)
+                                {
+                                    <span class="badge" style="background:#ffcccc;">PENDING</span>
+                                }
+                                else
+                                {
+
+                                    <span class="badge" style="background:#ccffcc;">OK</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
         </div>
 
         <button class="btn btn-primary" @onclick="ImportNow">Import starten</button>
@@ -100,11 +129,22 @@
     private string? SelectedEventId;
     private string Error = "";
     private List<PreviewEntry> Preview = new();
+    private int DuplicateCount = 0;
+    private int SuccessCount = 0;
+    private bool Confirm = false;
+    private string lastImport="";
+
 
     protected override async Task OnInitializedAsync()
     {
         Events = await Db.Events.OrderBy(e => e.Name).ToListAsync();
         Users = await Db.Users.ToListAsync();
+
+        ImportBatch? batch = await Db.Imports.OrderByDescending(b => b.Id)
+        .FirstOrDefaultAsync();
+        lastImport= batch is null ? " ": batch.Description;
+
+
     }
 
     private async Task OnFileSelected(InputFileChangeEventArgs e)
@@ -124,7 +164,7 @@
         {
             using var reader = new StreamReader(e.File.OpenReadStream());
             var content = await reader.ReadToEndAsync();
-            List<string>lines = content.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(x => x.Trim()).ToList();
+            List<string> lines = content.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(x => x.Trim()).ToList();
 
 
             if (lines.Count <= 1)
@@ -137,13 +177,13 @@
                 ParseSimple(lines);
             else
                 ParseAdvanced(lines);
-        }catch (Exception ex)
+        }
+        catch (Exception ex)
         {
             Error = $"Fehler beim Lesen: {ex.Message}";
         }
 
     }
-
     // ---------------- SIMPLE CSV -----------------
     // Name,DurationHours,Date
     private void ParseSimple(List<string> lines)
@@ -211,6 +251,16 @@
     private async Task ImportNow()
     {
         int eventId = int.Parse(SelectedEventId!);
+        SuccessCount=0;
+        DuplicateCount=0;
+
+        var batch = new ImportBatch
+        {
+            Description = $"Import für Event {eventId} am {DateTime.Now}"
+        };
+        Db.Imports.Add(batch);
+        await Db.SaveChangesAsync();
+
 
         foreach (var p in Preview)
         {
@@ -227,17 +277,30 @@
                 DurationHours = p.Duration,
                 Status = p.MatchedUser == null ? "pending_assignment" : "checked_out",
                 UserId = p.MatchedUser?.Id,
-                UserName = p.MatchedUser?.Name
+                UserName = p.MatchedUser?.Name,
+                ImportBatchId = batch.Id
             };
 
+            // --- DUPLICATE CHECK ---
+            if (TEService.IsDuplicate(entry))
+            {
+                DuplicateCount++;
+                continue; // nicht speichern
+            }
+            SuccessCount++;
             Db.TimeEntry.Add(entry);
         }
-
+        
         await Db.SaveChangesAsync();
-
+        StateHasChanged();
+        await Task.Delay(3000);
         Nav.NavigateTo("/admin/import/timeentries", true);
     }
 
+    private async Task UndoLastImport(){
+        Error= await TEService.UndoLastImport();
+        Nav.NavigateTo("/admin/import/timeentries", true);
+    }
     // ---------------- FUZZY MATCHING -----------------
     private User? FuzzyMatch(string name)
     {

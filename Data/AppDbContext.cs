@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Worktrack.Models;
+using Worktrack.Services;
 
 namespace Worktrack.Data;
 
@@ -16,6 +17,8 @@ public class AppDbContext : DbContext
     public DbSet<TimeEntry> TimeEntry { get; set; }
 
     public DbSet<Season> Seasons {get; set; }
+
+    public DbSet<ImportBatch> Imports { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

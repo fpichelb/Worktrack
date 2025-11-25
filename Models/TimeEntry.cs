@@ -13,7 +13,7 @@ public class TimeEntry
     public Event? Event { get; set; }
 
     [MaxLength(200)]
-    public string NameEntered { get; set; }
+    public string NameEntered { get; set; } = string.Empty;
 
     [MaxLength(500)]
     public string? Task { get; set; }
@@ -27,7 +27,10 @@ public class TimeEntry
 
     public string Status { get; set; } = "pending_assignment";
 
-    // für automatische Zuordnung (wenn Name matcht)
+    // fï¿½r automatische Zuordnung (wenn Name matcht)
     [MaxLength(100)]
     public string? MatchedUserName { get; set; }
+
+    public int? ImportBatchId { get; set; }
+    public ImportBatch? ImportBatch { get; set; }
 }

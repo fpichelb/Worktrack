@@ -126,6 +126,27 @@ public class TimeEntryService
 
         return true;
     }
+    public async Task<String> UndoLastImport()
+{
+    var batch = await Db.Imports
+        .OrderByDescending(b => b.Id)
+        .FirstOrDefaultAsync();
+
+    if (batch == null)
+    {
+        return "Kein Import gefunden";
+    }
+
+    var entries = Db.TimeEntry
+        .Where(e => e.ImportBatchId == batch.Id);
+
+    Db.TimeEntry.RemoveRange(entries);
+    Db.Imports.Remove(batch);
+
+    await Db.SaveChangesAsync();
+
+    return  "Der letzte Import wurde rückgängig gemacht.";
+}
 
     // --------------------------------------------------------------------
     // GET USER ENTRIES
@@ -137,6 +158,17 @@ public class TimeEntryService
             .OrderByDescending(e => e.CheckIn)
             .ToListAsync();
     }
+    public bool IsDuplicate(TimeEntry entry)
+    {
+        return Db.TimeEntry.Any(e =>
+            e.EventId == entry.EventId &&
+            e.NameEntered.ToLower() == entry.NameEntered.ToLower() &&
+            e.CheckIn == entry.CheckIn &&
+            Math.Abs((e.DurationHours ?? 0) - (entry.DurationHours ?? 0)) < 0.001
+            );
+    }
+
+
     public async Task<List<TimeEntry>> GetAllNotArchivedEntriesAsync()
     {
         return await Db.TimeEntry
@@ -211,7 +243,7 @@ public class TimeEntryService
     {
         var now = DateTime.UtcNow;
 
-        // Hole alle offenen Eintr�ge
+        // Hole alle offenen Eintr�ge
         var openEntries = await Db.TimeEntry
             .Include(e => e.Event)
             .Where(e => e.CheckOut == null)
