@@ -6,24 +6,24 @@ namespace Worktrack.Services;
 
 public class UserStatsService
 {
-    private readonly AppDbContext _db;
+    private readonly AppDbContext Db;
 
     public UserStatsService(AppDbContext db)
     {
-        _db = db;
+        Db = db;
     }
 
-    // Gibt vollständige Leaderboard-Daten zurück
+    // Gibt vollstï¿½ndige Leaderboard-Daten zurï¿½ck
     public async Task<List<UserStatsViewModel>> GetAllUserStatsAsync(bool includeAdmins = false)
     {
-        var usersQuery = _db.Users.AsQueryable();
+        var usersQuery = Db.Users.AsQueryable();
 
         if (!includeAdmins)
             usersQuery = usersQuery.Where(u => u.Role != "admin");
 
         var users = await usersQuery.ToListAsync();
 
-        var entries = await _db.Set<TimeEntry>()
+        var entries = await Db.Set<TimeEntry>()
             .Include(t => t.UserId)
             .Where(t => t.CheckOut != null)
             .ToListAsync();

@@ -1,0 +1,59 @@
+@page "/impressum"
+@inject ImpressumService ImpService
+
+<div class="impressum-wrapper">
+    <h2>Impressum</h2>
+
+    @if (Data == null)
+    {
+        <p>Lade...</p>
+    }
+    else
+    {
+        <div class="impressum-section">
+            <h3>Verantwortlich gemäß § 5 TMG</h3>
+            <p><span class="impressum-label">Name:</span><br />@Data.ResponsibleName</p>
+            <p><span class="impressum-label">Adresse:</span><br />@((MarkupString)Data.Address.Replace("\n", "<br />"))</p>
+        </div>
+
+        <hr class="impressum-divider" />
+
+        <div class="impressum-section">
+            <h3>Kontakt</h3>
+            <p><span class="impressum-label">E-Mail:</span> @Data.Email</p>
+            @if (!string.IsNullOrWhiteSpace(Data.Phone))
+            {
+                <p><span class="impressum-label">Telefon:</span> @Data.Phone</p>
+            }
+        </div>
+
+        <hr class="impressum-divider" />
+
+        @if (!string.IsNullOrWhiteSpace(Data.HostingProvider))
+        {
+            <div class="impressum-section">
+                <h3>Hosting & technische Umsetzung</h3>
+                <p>@Data.HostingProvider</p>
+            </div>
+        }
+
+        <hr class="impressum-divider" />
+
+        @if (!string.IsNullOrWhiteSpace(Data.Notes))
+        {
+            <div class="impressum-section">
+                <h3>Hinweise</h3>
+                <p>@((MarkupString)Data.Notes.Replace("\n", "<br />"))</p>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private Worktrack.Data.Impressum? Data;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Data = await ImpService.GetAsync();
+    }
+}

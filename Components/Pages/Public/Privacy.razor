@@ -1,0 +1,24 @@
+@page "/datenschutz"
+@inject PrivacyPolicyService PolicyService
+
+<h2>Datenschutzerklärung</h2>
+
+@if (Policy == null)
+{
+    <p>Lade...</p>
+}
+else
+{
+    <div class="privacy-box" @onclick:preventDefault="false">
+        @((MarkupString)Policy.Content)
+    </div>
+}
+
+@code {
+    private PrivacyPolicy? Policy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Policy = await PolicyService.GetAsync();
+    }
+}

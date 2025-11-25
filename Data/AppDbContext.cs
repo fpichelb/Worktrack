@@ -19,6 +19,8 @@ public class AppDbContext : DbContext
     public DbSet<Season> Seasons {get; set; }
 
     public DbSet<ImportBatch> Imports { get; set; }
+    public DbSet<PrivacyPolicy> PrivacyPolicies { get; set; }
+    public DbSet<Impressum> ImpressumData { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

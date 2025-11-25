@@ -1,0 +1,202 @@
+@page "/admin/public"
+@inject PrivacyPolicyService PolicyService
+@inject ImpressumService ImpService
+@rendermode InteractiveServer
+
+<h2>Datenschutzerklärung verwalten</h2>
+
+<h2>Impressum verwalten</h2>
+@if (Saved)
+        {
+            <p class="save-message">Gespeichert!</p>
+        }
+
+@if (Data == null)
+{
+    <p>Lade...</p>
+}
+else
+{
+    <div class="admin-form">
+        <label>Verantwortlicher (Name)</label>
+        <input class="form-control" @bind="Data.ResponsibleName" />
+
+        <label>Adresse</label>
+        <textarea class="form-control" rows="3" @bind="Data.Address"></textarea>
+
+        <label>E-Mail</label>
+        <input class="form-control" @bind="Data.Email" type="email" />
+
+        <label>Telefon (optional)</label>
+        <input class="form-control" @bind="Data.Phone" />
+
+        <label>Hosting Provider</label>
+        <input class="form-control" @bind="Data.HostingProvider" />
+
+        <label>Weitere Hinweise (optional)</label>
+        <textarea class="form-control" rows="4" @bind="Data.Notes"></textarea>
+
+        <button class="btn primary" @onclick="Save">Speichern</button>
+    </div>
+}
+
+@if (Policy == null)
+{
+    <p>Lade...</p>
+}
+else
+{
+    <div class="admin-form">
+        <label>Datenschutztext (DSGVO)</label>
+        <textarea class="form-control" rows="20" @bind="Policy.Content"></textarea>
+
+        <button class="btn primary" @onclick="Save">Speichern</button>
+
+        
+    </div>
+}
+
+@code {
+    private PrivacyPolicy? Policy;
+    private bool Saved;
+    private Impressum? Data;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Data = await ImpService.GetAsync();
+        Policy = await PolicyService.GetAsync();
+
+        // Falls noch kein Text existiert → Standard-DSGVO-Text vorschlagen
+        if (string.IsNullOrWhiteSpace(Policy.Content))
+        {
+            Policy.Content = DefaultPrivacyText;
+        }
+    }
+
+    private async Task Save()
+    {
+        await ImpService.SaveAsync(Data!);
+        await PolicyService.SaveAsync(Policy!);
+        Saved = true;
+    }
+    private string DefaultPrivacyText = @"
+
+<p>Der Schutz Ihrer personenbezogenen Daten ist uns sehr wichtig. Mit dieser Datenschutzerklärung informieren wir Sie darüber, wie wir in der Anwendung &bdquo;Clubwork&ldquo; personenbezogene Daten verarbeiten.</p>
+
+<h3>1. Verantwortlicher</h3>
+<p>Der Verantwortliche im Sinne von Art. 4 Nr. 7 DSGVO ergibt sich aus dem Impressum dieser Anwendung.</p>
+
+<h3>2. Zweck der Datenverarbeitung</h3>
+<p>Clubwork ist eine Anwendung zur Organisation und Verwaltung von Vereins-, Club- oder Veranstaltungsstunden. Die Daten werden verarbeitet, um:</p>
+<ul>
+    <li>Event-Teilnahmen zu verwalten,</li>
+    <li>Check-In und Check-Out per QR-Code zu ermöglichen,</li>
+    <li>Arbeits- bzw. Helferstunden zu erfassen,</li>
+    <li>Statistiken und persönliche Stundensummen bereitzustellen,</li>
+    <li>Team- und Saison-Rankings (Leaderboard) anzuzeigen (optional),</li>
+    <li>importierte Zeitbuchungen zu verwalten,</li>
+    <li>Verantwortlichen und Administratoren Auswertungen zu ermöglichen.</li>
+</ul>
+
+<h3>3. Verarbeitete personenbezogene Daten</h3>
+
+<h4>3.1 Registrierungs- und Profildaten</h4>
+<ul>
+    <li>Name,</li>
+    <li>E-Mail-Adresse (falls hinterlegt),</li>
+    <li>Secret Code (Benutzerkennung).</li>
+</ul>
+
+<h4>3.2 Event- und Arbeitszeitdaten</h4>
+<ul>
+    <li>Check-In-Zeit,</li>
+    <li>Check-Out-Zeit,</li>
+    <li>Dauer der Teilnahme,</li>
+    <li>zugehöriger Event,</li>
+    <li>Benutzerzuordnung (bei Bedarf manuell durch Administratoren).</li>
+</ul>
+
+<h4>3.3 Optionale Daten</h4>
+<ul>
+    <li>angegebene Aufgabe/Tätigkeit beim Check-In (sofern vom Event verlangt),</li>
+    <li>Freigabe von Statistiken (&bdquo;ShareStats&ldquo;) für Leaderboards.</li>
+</ul>
+
+<h3>4. Rechtsgrundlagen der Verarbeitung</h3>
+<p>Die Datenverarbeitung erfolgt auf Grundlage von Art. 6 DSGVO:</p>
+<ul>
+    <li><strong>Art. 6 Abs. 1 lit. b DSGVO</strong> (Vertragserfüllung)<br>
+        soweit die Verarbeitung zur Erfüllung vereins- oder clubbezogener Pflichten 
+        (z.&nbsp;B. Erfassung von Helferstunden, Organisation von Diensten) erforderlich ist.
+    </li>
+    <li><strong>Art. 6 Abs. 1 lit. f DSGVO</strong> (berechtigtes Interesse)<br>
+        für die interne Organisation, Nachweisbarkeit erbrachter Tätigkeiten, 
+        die Planung von Einsätzen sowie die Auswertung von Events. 
+        Hierunter fällt auch die Anzeige von Team- und Saisonstatistiken,
+        sofern Nutzer der Anzeige ihrer Werte durch &bdquo;ShareStats&ldquo; zugestimmt haben.
+    </li>
+    <li><strong>Art. 6 Abs. 1 lit. a DSGVO</strong> (Einwilligung)<br>
+        soweit Nutzer freiwillig zusätzliche Angaben machen (z.&nbsp;B. Aufgabenbeschreibung) 
+        oder der Veröffentlichung/Anzeige ihrer Statistiken zustimmen.
+    </li>
+</ul>
+
+<h3>5. Weitergabe der Daten</h3>
+<p>Eine Weitergabe personenbezogener Daten an Dritte erfolgt nicht, es sei denn, wir sind gesetzlich dazu verpflichtet.</p>
+<p>Zugriffsberechtigt sind ausschließlich:</p>
+<ul>
+    <li>Administratorinnen und Administratoren der Anwendung,</li>
+    <li>verantwortliche Personen des Vereins/Clubs,</li>
+    <li>technische Dienstleister, soweit dies zur Bereitstellung der Anwendung notwendig ist.</li>
+</ul>
+<p>Eine Übermittlung in Drittstaaten findet nicht statt.</p>
+
+<h3>6. Speicherung im Browser / LocalStorage</h3>
+<p>Die Anwendung kann beim Check-In bestimmte Daten lokal auf Ihrem Endgerät speichern, z.&nbsp;B.:</p>
+<ul>
+    <li>Name,</li>
+    <li>optional: Aufgabe/Tätigkeit,</li>
+    <li>Information zum letzten Check-In (zur Unterstützung von automatischem Check-Out beim erneuten QR-Scan).</li>
+</ul>
+<p>Diese Daten verbleiben ausschließlich in Ihrem Browser (LocalStorage) und können von Ihnen jederzeit durch Löschen der Browserdaten entfernt werden.</p>
+
+<h3>7. Hosting</h3>
+<p>Die Anwendung wird bei einem externen Hosting-Anbieter betrieben. Details zum Hosting (z.&nbsp;B. Anbieter, Serverstandort) entnehmen Sie bitte dem Impressum.</p>
+<p>Der Hosting-Anbieter verarbeitet Server-Logdaten (z.&nbsp;B. IP-Adresse, Zeitpunkt des Zugriffs, aufgerufene Ressourcen) zur Sicherstellung des technischen Betriebs und der Sicherheit der Systeme. Die Verarbeitung erfolgt auf Grundlage von Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse an einem sicheren Betrieb der Anwendung).</p>
+
+<h3>8. Speicherdauer</h3>
+<ul>
+    <li>Event- und Zeitbuchungen werden so lange gespeichert, wie dies für die interne Organisation des Vereins/Clubs erforderlich ist (z.&nbsp;B. zur Auswertung von Einsätzen oder zur Erstellung von Jahresstatistiken).</li>
+    <li>Archivierte Stunden werden gekennzeichnet und ggf. in getrennten Auswertungen geführt.</li>
+    <li>Im Browser gespeicherte lokale Daten (LocalStorage) können von Nutzerinnen und Nutzern jederzeit selbst gelöscht werden.</li>
+</ul>
+
+<h3>9. Ihre Rechte als betroffene Person</h3>
+<p>Sie haben im Rahmen der geltenden Datenschutzgesetze insbesondere folgende Rechte:</p>
+<ul>
+    <li>Recht auf Auskunft über die Sie betreffenden personenbezogenen Daten (Art. 15 DSGVO),</li>
+    <li>Recht auf Berichtigung unrichtiger Daten (Art. 16 DSGVO),</li>
+    <li>Recht auf Löschung (Art. 17 DSGVO),</li>
+    <li>Recht auf Einschränkung der Verarbeitung (Art. 18 DSGVO),</li>
+    <li>Recht auf Datenübertragbarkeit (Art. 20 DSGVO),</li>
+    <li>Recht auf Widerspruch gegen die Verarbeitung (Art. 21 DSGVO).</li>
+</ul>
+<p>Hierzu können Sie sich an den im Impressum genannten Verantwortlichen wenden.</p>
+
+<h3>10. Widerruf von Einwilligungen</h3>
+<p>Sofern eine Verarbeitung auf Ihrer Einwilligung beruht (z.&nbsp;B. Freigabe der eigenen Statistik im Leaderboard &bdquo;ShareStats&ldquo;), können Sie diese Einwilligung jederzeit mit Wirkung für die Zukunft widerrufen. Die Rechtmäßigkeit der bis zum Widerruf erfolgten Verarbeitung bleibt hiervon unberührt.</p>
+
+<h3>11. Sicherheit der Verarbeitung</h3>
+<p>Wir treffen angemessene technische und organisatorische Maßnahmen, um Ihre Daten vor Verlust, Missbrauch oder unbefugtem Zugriff zu schützen. Dazu gehören insbesondere:</p>
+<ul>
+    <li>verschlüsselte Datenübertragung (HTTPS),</li>
+    <li>rollenbasierte Berechtigungskonzepte für Administratoren,</li>
+    <li>Beschränkung des Zugriffs auf notwendige Personen,</li>
+    <li>regelmäßige Aktualisierung der Server-Software.</li>
+</ul>
+
+<h3>12. Änderungen dieser Datenschutzerklärung</h3>
+<p>Wir behalten uns vor, diese Datenschutzerklärung anzupassen, wenn sich die Anwendung oder die rechtlichen Rahmenbedingungen ändern. Es gilt stets die auf dieser Seite abrufbare jeweils aktuelle Version.</p>
+
+";
+}

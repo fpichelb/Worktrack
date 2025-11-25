@@ -31,6 +31,8 @@ builder.Services.AddScoped<TimeEntryService>()
                 .AddScoped<UserStatsService>()
                 .AddScoped<UserService>()
                 .AddScoped<SeasonService>()
+                .AddScoped<ImpressumService>()
+                .AddScoped<PrivacyPolicyService>()
                 .AddScoped<EventService>();
 
 builder.Services.AddHostedService<AutoCheckoutHostedService>();

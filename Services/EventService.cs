@@ -6,11 +6,11 @@ namespace Worktrack.Services
 {
     public class EventService
     {
-        private readonly AppDbContext _db;
+        private readonly AppDbContext Db;
 
         public EventService(AppDbContext db)
         {
-            _db = db;
+            Db = db;
         }
 
         // ----------------------------------------------------------
@@ -18,7 +18,7 @@ namespace Worktrack.Services
         // ----------------------------------------------------------
         public async Task<List<Event>> GetAllEventsAsync()
         {
-            return await _db.Events
+            return await Db.Events
                 .OrderByDescending(e => e.Id)
                 .ToListAsync();
         }
@@ -28,7 +28,7 @@ namespace Worktrack.Services
         // ----------------------------------------------------------
         public async Task<Event?> GetEventByIdAsync(int id)
         {
-            return await _db.Events.FindAsync(id);
+            return await Db.Events.FindAsync(id);
         }
 
         // ----------------------------------------------------------
@@ -36,8 +36,8 @@ namespace Worktrack.Services
         // ----------------------------------------------------------
         public async Task<Event> CreateEventAsync(Event ev)
         {
-            _db.Events.Add(ev);
-            await _db.SaveChangesAsync();
+            Db.Events.Add(ev);
+            await Db.SaveChangesAsync();
             return ev;
         }
 
@@ -46,12 +46,12 @@ namespace Worktrack.Services
         // ----------------------------------------------------------
         public async Task<bool> UpdateEventAsync(Event ev)
         {
-            var existing = await _db.Events.FindAsync(ev.Id);
+            var existing = await Db.Events.FindAsync(ev.Id);
             if (existing == null)
                 return false;
 
-            _db.Entry(existing).CurrentValues.SetValues(ev);
-            await _db.SaveChangesAsync();
+            Db.Entry(existing).CurrentValues.SetValues(ev);
+            await Db.SaveChangesAsync();
 
             return true;
         }
@@ -61,12 +61,12 @@ namespace Worktrack.Services
         // ----------------------------------------------------------
         public async Task<bool> DeleteEventAsync(int id)
         {
-            var ev = await _db.Events.FindAsync(id);
+            var ev = await Db.Events.FindAsync(id);
             if (ev == null)
                 return false;
 
-            _db.Events.Remove(ev);
-            await _db.SaveChangesAsync();
+            Db.Events.Remove(ev);
+            await Db.SaveChangesAsync();
             return true;
         }
 
@@ -75,21 +75,21 @@ namespace Worktrack.Services
         // ----------------------------------------------------------
         public async Task<bool> SetActiveAsync(int id, bool active)
         {
-            var ev = await _db.Events.FindAsync(id);
+            var ev = await Db.Events.FindAsync(id);
             if (ev == null)
                 return false;
 
             ev.IsActive = active;
-            await _db.SaveChangesAsync();
+            await Db.SaveChangesAsync();
             return true;
         }
 
         // ----------------------------------------------------------
-        // GET EVENTS BY GROUP / SEASON (wenn du das später einbaust)
+        // GET EVENTS BY GROUP / SEASON (wenn du das spï¿½ter einbaust)
         // ----------------------------------------------------------
         public async Task<List<Event>> GetEventsBySeasonAsync(string season)
         {
-            return await _db.Events
+            return await Db.Events
                 .Where(e => e.Season == season)
                 .ToListAsync();
         }
