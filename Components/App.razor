@@ -11,7 +11,7 @@
         <link rel="stylesheet" href="css/bootstrap/bootstrap.min.css"/>
         <link rel="stylesheet" href="app.css"/>
         <link rel="stylesheet" href="Worktrack.styles.css"/>
-        <link rel="icon" type="image/png" href="favicon.png"/>
+        <link rel="icon" type="image/png" href="favicon.png?v=2"/>
     </head>
     <Body>
     <Router AppAssembly="@typeof(Program).Assembly">
@@ -24,13 +24,13 @@
             <LayoutView Layout="@typeof(MainLayout)">
                 <div class="notfound-container">
                     <h1>Page not found</h1>
-                    <p>Sorry, there’s nothing at this address.</p>
+                    <p>Sorry, thereï¿½s nothing at this address.</p>
                     <a href="/" class="btn">Go back home</a>
                 </div>
             </LayoutView>
         </NotFound>
     </Router>
-
+    <script src="/_framework/aspnetcore-browser-refresh.js"></script>
     <script src="_framework/blazor.server.js"></script>
 
     </Body>
