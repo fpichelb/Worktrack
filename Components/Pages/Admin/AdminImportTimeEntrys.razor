@@ -294,7 +294,7 @@
         await Db.SaveChangesAsync();
         StateHasChanged();
         await Task.Delay(3000);
-        Nav.NavigateTo("/admin/import/timeentries", true);
+       // Nav.NavigateTo("/admin/import/timeentries", true);
     }
 
     private async Task UndoLastImport(){

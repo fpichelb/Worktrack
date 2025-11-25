@@ -158,6 +158,14 @@ public class TimeEntryService
             .OrderByDescending(e => e.CheckIn)
             .ToListAsync();
     }
+
+    public async Task<List<TimeEntry>> GetEntriesForEventAsync(int EventId)
+    {
+        return  await Db.TimeEntry
+        .Where(t => t.EventId == EventId)
+        .OrderByDescending(t => t.CheckIn)
+        .ToListAsync();
+    }
     public bool IsDuplicate(TimeEntry entry)
     {
         return Db.TimeEntry.Any(e =>
