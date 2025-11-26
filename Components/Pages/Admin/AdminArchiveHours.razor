@@ -91,13 +91,13 @@ else
         Rows = users.Select(u =>
         {
             var cur = entries
-    .Where(e => e.UserId == u.Id)
-    .Sum(e => (e.CheckOut!.Value - e.CheckIn!.Value).TotalHours);
-
+                            .Where(e => e.UserId == u.Id)
+                            .Sum(e => (e.DurationHours));
+            cur+= u.BonusHours;
             return new RowModel
             {
                 User = u,
-                CurrentHours = cur
+                CurrentHours = cur??0
             };
         })
         .Where(r => r.CurrentHours > 0.0)
