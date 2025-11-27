@@ -175,9 +175,9 @@ else
 
             double totalHours = userEntries.Where(e => e.IsArchived == false).Sum(e => (e.DurationHours ?? 0));
             int eventsVisited = userEntries.Where(e => e.IsArchived == false).Select(e => e.EventId).Distinct().Count();
-
-            var achievements = BuildAchievements(u, totalHours, eventsVisited);
             totalHours += u.BonusHours;
+            var achievements = BuildAchievements(u, totalHours, eventsVisited);
+            
             GlobalStats.Add(new GlobalUserStats
             {
                 Id = u.Id,
@@ -203,12 +203,12 @@ else
     {
         var list = new List<string>();
 
-        if (eventsVisited >= 1) list.Add("Newcomer");
-        if (eventsVisited >= 3) list.Add("Event Runner");
-        if (eventsVisited >= 10) list.Add("Event Veteran");
-        if (hours >= 20) list.Add("Hard Worker");
-        if (hours >= 50) list.Add("50 Hours Badge");
-        if (hours >= 100) list.Add("100 Hours Badge");
+        if (eventsVisited >= 1) list.Add("🆕");
+        if (eventsVisited >= 3) list.Add("🏃‍♂️");
+        if (eventsVisited >= 10) list.Add("⚔️");
+        if (hours >= 20) list.Add("💪");
+        if (hours >= 50) list.Add("🌟");
+        if (hours >= 100) list.Add("💎");
 
         // Teilnahme an allen Saisons?
        
