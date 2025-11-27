@@ -1,4 +1,5 @@
 @page "/teamstats"
+@using System.Text.RegularExpressions
 
 @inject AppDbContext Db
 @inject SeasonService seasonService
@@ -37,7 +38,9 @@ else
                             <td>
                                 @foreach (var a in u.Achievements)
                                 {
-                                    <span class="badge">@a</span>
+                                    <span class = "badge" data-bs-toggle="tooltip" title="@a.tooltip">
+                                      @a.shown
+                                    </span>
                                 }
                             </td>
                         </tr>
@@ -199,17 +202,27 @@ else
         .ToList();
     }
 
-    private List<string> BuildAchievements(User u, double hours, int eventsVisited)
+    private List<SimpleAchievement> BuildAchievements(User u, double hours, int eventsVisited)
     {
-        var list = new List<string>();
+        var list = new List<SimpleAchievement>();
 
-        if (eventsVisited >= 1) list.Add("🆕");
-        if (eventsVisited >= 3) list.Add("🏃‍♂️");
-        if (eventsVisited >= 10) list.Add("⚔️");
-        if (hours >= 20) list.Add("💪");
-        if (hours >= 50) list.Add("🌟");
-        if (hours >= 100) list.Add("💎");
-
+        if (eventsVisited >= 1) list.Add(new(){shown="🆕",tooltip="Newcomer"});
+        if (eventsVisited >= 3) list.Add(new(){shown="⚡🏃",tooltip="Eventrunner"});
+        if (eventsVisited >= 10) list.Add(new(){shown="🎉⚔️",tooltip="Eventveteran"});
+        if (hours >= 20) list.Add(new(){shown="💪",tooltip="Hardworker"});
+        if (hours >= 50) list.Add(new(){shown="🌟",tooltip="50 Hours"});
+        if (hours >= 100) list.Add(new(){shown="💎",tooltip="100 Hours"});
+        bool podium = false;
+        bool seasonHero = false;
+        if (SeasonGroups.Keys.Any()) seasonHero=true;
+        foreach(var group in SeasonGroups.Keys){
+            if (SeasonGroups[group].Any()){
+                if(!EventStats[group.Name].Any(es =>es.UserId ==u.Id)) seasonHero =false;  
+                if(EventStats[group.Name].Take(3).Any(es=>es.UserId==u.Id)) podium = true;
+            }
+        }
+        if (podium) list.Add(new(){shown="🥈🏆🥉",tooltip="Podium"});
+        if (seasonHero) list.Add(new(){shown="🌸🍂🚀❄️☀️",tooltip="Season Hero"});
         // Teilnahme an allen Saisons?
        
 
@@ -228,6 +241,11 @@ else
         public int EventsVisited { get; set; }
         public double TotalHours { get; set; }
         public int Bonus { get; set; } = 0;
-        public List<string> Achievements { get; set; } = new();
+        public List<SimpleAchievement> Achievements { get; set; } = new();
+    }
+
+    class SimpleAchievement{
+        public string shown = "";
+        public string tooltip = "";
     }
 }
