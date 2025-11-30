@@ -31,14 +31,6 @@
         }
         
         </div>
-        @if (Result != null)
-{
-    <div class="alert alert-success" style="margin-top:1rem;">
-        Archiviert: @Result.TotalEntries Einträge  
-        <br />
-        Summe: @Result.TotalHours Stunden
-    </div>
-}
     </div>
 @if (Rows == null)
 {
@@ -116,12 +108,15 @@ else
     private async Task ArchiveRow(RowModel r){
         await TEservice.ArchiveUserHoursAsync(r.User);
         StateHasChanged();
+        Toasts.ShowSuccess("User Archiviert",$" Es wurden {r.CurrentHours.ToString("F2")} bei {r.User.Name} archiviert.");
     }
     private async Task ArchiveAll()
     {
         Result = await TEservice.ArchiveAllUsersAsync();
         StateHasChanged();
+        Toasts.ShowSuccess("Alle User Archiviert",$"Es wurden insgesamt {Result.TotalHours.ToString("F2")}h \nbei {Result.TotalEntries} Einträgen archviert");
     }
+
 
 
     

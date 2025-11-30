@@ -1,0 +1,64 @@
+@using System
+@using System.Linq
+@using System.Threading.Tasks
+@using Worktrack.Services
+@namespace Worktrack.Shared
+@inject ToastService Toasts
+@implements IDisposable
+@rendermode InteractiveServer
+
+<div class="toast-stack">
+    @foreach (var toast in _toasts)
+    {
+        <div class="toast show @toast.Type.ToString().ToLower()" style="--toast-delay:@(toast.DurationMs)ms;" @onclick="() => Dismiss(toast.Id)">
+            <div class="toast-head">
+                <strong>@toast.Title</strong>
+                <button type="button" class="toast-close" @onclick="() => Close(toast.Id)" @onclick:stopPropagation="true">&times;</button>
+            </div>
+            <p>@toast.Message</p>
+        </div>
+    }
+</div>
+
+@code {
+    private readonly List<ToastMessage> _toasts = new();
+
+    protected override void OnInitialized()
+    {   
+        Toasts.OnShow += HandleShow;
+        Toasts.OnDismiss += HandleDismiss;      
+    }
+
+    private async void HandleShow(ToastMessage toast)
+    {
+        _toasts.Add(toast);
+        await InvokeAsync(StateHasChanged);
+        _ = AutoDismiss(toast);
+    }
+
+    private async Task AutoDismiss(ToastMessage toast)
+    {
+        await Task.Delay(toast.DurationMs);
+        Dismiss(toast.Id);
+    }
+
+    private void HandleDismiss(Guid id) => Dismiss(id);
+
+    private void Dismiss(Guid id)
+    {
+        var item = _toasts.FirstOrDefault(t => t.Id == id);
+        if (item != null)
+        {
+            _toasts.Remove(item);
+            InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void Close(Guid id) => Dismiss(id);
+
+    public void Dispose()
+    {
+        Toasts.OnShow -= HandleShow;
+        Toasts.OnDismiss -= HandleDismiss;
+    }
+}

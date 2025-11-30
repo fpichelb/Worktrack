@@ -8,6 +8,10 @@
 @inject IJSRuntime JS
 @inject UserService UService
 
+@inject ToastService Toasts
+
+
+
 <h2>Benutzerverwaltung</h2>
 
 <div class="card">
@@ -21,121 +25,162 @@
             <button class="btn" style="margin-right:0.5rem;" @onclick="ShowDetails">Show Details</button>
             <button class="btn" style="margin-right:0.5rem;" @onclick="ShowAddUser">Show AddUser</button>
             <button class="btn" @onclick="ExportCsv">CSV Export</button>
+
         </div>
     </div>
 
     <div style="margin-top:1rem; display:flex; gap:0.5rem;">
-        <input placeholder="Suche nach Name oder E-Mail…" @bind="@SearchTerm" />
+    
+        <input placeholder="Suche nach Name oder E-Mail" @bind="@SearchTerm" @onkeydown="LoadUsers" />
         <button class="btn secondary" @onclick="LoadUsers">Suchen</button>
+
     </div>
-    @if(showAddUser){
-    <div class="card" style="margin-bottom:2rem;">
-    <h3>Neuen Nutzer hinzufügen</h3>
 
-    @if (!string.IsNullOrEmpty(Error))
+    @if (showAddUser)
     {
-        <p style="color:red;">@Error</p>
-    }
 
-    @if (!string.IsNullOrEmpty(Success))
-    {
-        <p style="color:green;">@Success</p>
-    }
+        <div class="card" style="margin-bottom:2rem;">
 
-    <div class="form-group">
-        <label>Name</label>
-        <input class="form-control" @bind="Name" />
+            <h3>Neuen Nutzer hinzufügen</h3>
+
+            <div class="form-group">
+
+                <label>Name</label>
+                <input class="form-control" @bind="Name" />
+
+            </div>
+
+            <div class="form-group">
+
+                <label>Email (optional)</label>
+                <input class="form-control" @bind="Email" />
+
+            </div>
+
+            <div class="form-group">
+
+                <label>Admin?</label>
+                <input type="checkbox" @bind="newUserIsAdmin" />
+
+            </div>
+
+            <button class="btn btn-primary" @onclick="AddUser">Hinzufügen</button>
+
         </div>
 
-        <div class="form-group">
-            <label>Email (optional)</label>
-            <input class="form-control" @bind="Email" />
-        </div>
-
-        <div class="form-group">
-            <label>Admin?</label>
-            <input type="checkbox" @bind="newUserIsAdmin" />
-        </div>
-
-        <button class="btn btn-primary" @onclick="AddUser">Hinzufügen</button>
-    </div>
     }
+
     @if (IsLoading)
     {
-        <p style="margin-top:1rem;">Lade Benutzer…</p>
+        <p style="margin-top:1rem;">Lade Benutzer</p>
     }
     else if (!Users.Any())
     {
         <p style="margin-top:1rem;">Keine Benutzer gefunden.</p>
     }
     else
-    {<div class="table-responsive">
-        <table style="margin-top:1rem;">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                   @if(showDetails){ <th>E-Mail</th>}
-                    <th>Secret Code</th>
-                     @if(showDetails){<th>Rolle</th>
-                    <th class="text-right">Archiv-Stunden</th>}
-                    <th class="text-right">Aktuelle Stunden</th>
-                   <!--- <th class="text-right">Gesamt</th>--->
-                   <th class="text-left">Bonus</th>
-                    @if(showDetails){
-                    <th class="text-right">Aktionen</th>}
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var u in Users)
-                {
-                    var current = GetCurrentHours(u.Id);
-                    //var total = u.ArchivedHours + current;
+    {
+        <div class="table-responsive">
+            <table style="margin-top:1rem;">
+                <thead>
+                    <tr>
+                        <th>Name</th>
 
-                    <tr><td>
-                        @if(showDetails){<InputText @bind-Value="u.Name" @bind-Value:after="()=> Save(u)"/>}else{@u.Name}</td>
-                        @if(showDetails){<td>@u.Email</td>}
-                        <td>
-                        @if(showDetails){<InputText @bind-Value="u.SecretCode" @bind-Value:after="()=> Save(u)"/>}else{@u.SecretCode}
-                        </td>
-                         @if(showDetails){<td>@(u.Role == "admin" ? "Admin" : "User")</td>
-                        <td class="text-right">@u.ArchivedHours.ToString("0.0")</td>}
-                        <td class="text-right">@current.ToString("0.0")</td>
-                        <td>
-                        <InputNumber @bind-Value="u.BonusHours" @bind-Value:after="()=> Save(u)" />
-                        </td>
-                       <!--- <td class="text-right">@total.ToString("0.0")</td>-->
-                        @if(showDetails){
-                        <td class="text-right">
-                            @if (u.Role != "admin")
-                            {
-                                <button class="btn secondary" style="margin-right:0.5rem;margin-bottom:0.5rem;" @onclick="() => MakeAdmin(u)">Admin</button>
-                            }
-                            <button class="btn secondary" @onclick="() => DeleteUser(u)">Löschen</button>
-                        </td>
+                        @if (showDetails)
+                        {
+                            <th>E-Mail</th>
                         }
+
+                        <th>Secret Code</th>
+
+                        @if (showDetails)
+                        {
+                            <th>Rolle</th>
+                            <th class="text-right">Archiv-Stunden</th>
+                        }
+
+                        <th class="text-right">Aktuelle Stunden</th>
+                        <!--- <th class="text-right">Gesamt</th>--->
+                        <th class="text-left">Bonus</th>
+                        @if (showDetails)
+                        {
+                            <th class="text-right">Aktionen</th>
+                        }
+
                     </tr>
-                }
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    @foreach (var u in Users)
+                    {
+                        var current = GetCurrentHours(u.Id);
+                        //var total = u.ArchivedHours + current;
+                        <tr>
+                            <td>
+                                @if (showDetails)
+                                {
+                                    <InputText @bind-Value="u.Name" @bind-Value:after="() => Save(u)" />
+                                }
+                                else
+                                {
+                                    @u.Name
+                                }
+                            </td>
+                            @if (showDetails)
+                            {
+                                <td>@u.Email</td>
+                            }
+                            <td>
+                                @if (showDetails)
+                                {
+                                    <InputText @bind-Value="u.SecretCode" @bind-Value:after="() => Save(u)" />
+                                }
+                                else
+                                {
+                                    @u.SecretCode
+                                }
+                            </td>
+                            @if (showDetails)
+                            {
+                                <td>@(u.Role == "admin" ? "Admin" : "User")</td>
+                                <td class="text-right">@u.ArchivedHours.ToString("0.0")</td>
+                            }
+                            <td class="text-right">@current.ToString("0.0")</td>
+                            <td>
+                                <InputNumber @bind-Value="u.BonusHours" @bind-Value:after="() => Save(u)" />
+                            </td>
+                            <!--- <td class="text-right">@total.ToString("0.0")</td>-->
+                            @if (showDetails)
+                            {
+                                <td class="text-right">
+                                    @if (u.Role != "admin")
+                                    {
+                                        <button class="btn secondary" style="margin-right:0.5rem;margin-bottom:0.5rem;"
+                                            @onclick="() => MakeAdmin(u)">Admin</button>
+                                    }
+                                    <button class="btn secondary" @onclick="() => DeleteUser(u)">Löschen</button>
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
         </div>
     }
 </div>
 
 @code {
+    private bool PreventEnter(KeyboardEventArgs e) => e.Key == "Enter";
     private List<User> Users = new();
     private readonly Dictionary<User, System.Timers.Timer> _debounceTimers = new();
-
     private List<TimeEntry> Entries = new();
     private string SearchTerm = "";
     private bool IsLoading = true;
     private bool showDetails = false;
-    private bool showAddUser =false;
+    private bool showAddUser = false;
     private string Name = "";
     private string Email = "";
+    private bool newUserIsAdmin = false;
 
-    private bool newUserIsAdmin=false;
-     private string Error = "";
-    private string Success = "";
 
     [Inject] public NavigationManager Nav { get; set; } = default!;
 
@@ -143,18 +188,13 @@
     {
         await LoadUsers();
     }
-
-     private async Task AddUser()
+    private async Task AddUser()
     {
-        Error = "";
-        Success = "";
-
         try
         {
             var user = await UService.AddSingleUserAsync(Name, Email, newUserIsAdmin);
-
-            Success = $"Benutzer '{user.Name}' wurde hinzugefügt. Geheimcode: {user.SecretCode}";
-
+            Console.WriteLine($"PAGE SERVICE INSTANCE: {Toasts.GetHashCode()}");
+            Toasts.ShowSuccess("Benutzer angelegt", $"{user.Name} wurde hinzugefügt. Geheimcode: {user.SecretCode}");
             // Felder leeren
             Name = "";
             Email = "";
@@ -162,7 +202,7 @@
         }
         catch (Exception ex)
         {
-            Error = ex.Message;
+            Toasts.ShowError("Fehler beim Anlegen", $"{ex.Message}");
         }
     }
 
@@ -171,55 +211,67 @@
         IsLoading = true;
 
         var query = Db.Users.AsQueryable();
+
         if (!string.IsNullOrWhiteSpace(SearchTerm))
         {
             query = query.Where(u =>
-                u.Name.Contains(SearchTerm) || (u.Email != null && u.Email.Contains(SearchTerm)));
+            u.Name.Contains(SearchTerm) || (u.Email != null && u.Email.Contains(SearchTerm)));
         }
 
         Users = await query.OrderBy(u => u.Name).ToListAsync();
 
         Entries = await Db.TimeEntry
-            .Where(e => e.CheckIn != null && e.CheckOut != null && !e.IsArchived)
-            .ToListAsync();
-
+        .Where(e => e.CheckIn != null && e.CheckOut != null && !e.IsArchived)
+        .ToListAsync();
+       
         IsLoading = false;
+        StateHasChanged();
     }
+
 
     private double GetCurrentHours(int userId)
     {
         return Entries
-            .Where(e => e.UserId == userId && e.CheckIn != null && e.CheckOut != null)
-            .Sum(e => (e.DurationHours??0));
+        .Where(e => e.UserId == userId && e.CheckIn != null && e.CheckOut != null)
+        .Sum(e => (e.DurationHours ?? 0));
     }
 
-    private async Task Save(User u){
+
+    private async Task Save(User u)
+    {
         await Db.SaveChangesAsync();
         await LoadUsers();
     }
+
 
     private async Task MakeAdmin(User u)
     {
         u.Role = "admin";
         await Db.SaveChangesAsync();
+        Toasts.ShowInfo("Rolle aktualisiert", $" {u.Name} ist jetzt Admin.");
         await LoadUsers();
     }
 
     private async Task DeleteUser(User u)
     {
         Db.Users.Remove(u);
-        await Db.SaveChangesAsync();
+        await Db.SaveChangesAsync(); 
+        Toasts.ShowInfo("Benutzer gelöscht", $"{u.Name} wurde entfernt.");
         await LoadUsers();
     }
 
-    private void ShowDetails(){
-        if(showDetails)showDetails=false;
-        else showDetails=true;
+    private void ShowDetails()
+    {
+        if (showDetails) showDetails = false;
+        else showDetails = true;
     }
-    private void ShowAddUser(){
-        if(showAddUser)showAddUser=false;
-        else showAddUser=true;
+
+    private void ShowAddUser()
+    {
+        if (showAddUser) showAddUser = false;
+        else showAddUser = true;
     }
+
 
     private async Task ExportCsv()
     {
@@ -243,5 +295,6 @@
     }
 
     private string Escape(string? value)
-        => "\"" + (value ?? "").Replace("\"", "\"\"") + "\"";
+    => "\"" + (value ?? "").Replace("\"", "\"\"") + "\"";
+
 }

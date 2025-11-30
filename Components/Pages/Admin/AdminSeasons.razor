@@ -25,7 +25,7 @@
         }
     </div>
 
-    <button class="btn-primary" @onclick="AddSeason">Season speichern</button>
+    <button class="btn primary" @onclick="AddSeason">Season speichern</button>
 </div>
 
 <br />
@@ -87,7 +87,9 @@
         if (string.IsNullOrWhiteSpace(NewSeason.Name))
             return;
 
-        await seasonService.CreateAsync(NewSeason);
+        var addedS = await seasonService.CreateAsync(NewSeason);
+        Seasons.Insert(0,addedS);
+        Toasts.ShowSuccess("Season erstellt",$"{addedS.Name} wurde erfolgreich erstellt");
         NewSeason = new Season();
         StateHasChanged();
     }
@@ -96,5 +98,6 @@
     {
         await seasonService.DeleteAsync(s.Id);
         Seasons.Remove(s);
+        Toasts.ShowInfo("Season gelöscht",$"{s.Name} wurde gelöscht.");
     }
 }

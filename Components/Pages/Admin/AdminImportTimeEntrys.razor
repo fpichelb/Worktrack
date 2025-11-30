@@ -60,22 +60,7 @@
 
     <InputFile OnChange="@OnFileSelected" accept=".csv" />
 
-    @if (!string.IsNullOrWhiteSpace(Error))
-    {
-        <p style="color:red;">@Error</p>
-    }
-    
 </div>
-
-@if (SuccessCount + DuplicateCount > 0)
-{
-    <div class="card">
-        <h3>Import Zusammenfassung</h3>
-        <p>Neu hinzugefügt: @SuccessCount</p>
-        <p>Übersprungen (Duplicate): @DuplicateCount</p>
-        <p style="color:red;">Seite wird in 3 Sekunden neu geladen</p>
-    </div>
-}
 @if (Preview.Count > 0)
 {
     <div class="card">
@@ -127,7 +112,6 @@
     private List<User> Users = new();
     private string ImportMode = "simple";
     private string? SelectedEventId;
-    private string Error = "";
     private List<PreviewEntry> Preview = new();
     private int DuplicateCount = 0;
     private int SuccessCount = 0;
@@ -139,25 +123,21 @@
     {
         Events = await Db.Events.OrderBy(e => e.Name).ToListAsync();
         Users = await Db.Users.ToListAsync();
+        await getLastImport();
+    }
 
+    private async Task getLastImport(){
         ImportBatch? batch = await Db.Imports.OrderByDescending(b => b.Id)
         .FirstOrDefaultAsync();
         lastImport= batch is null ? " ": batch.Description;
-
-
     }
-
     private async Task OnFileSelected(InputFileChangeEventArgs e)
     {
-
-
-        Console.WriteLine("############" + ImportMode + "##############");
-        Error = "";
         Preview.Clear();
 
         if (SelectedEventId == null)
         {
-            Error = "Bitte zuerst ein Event wählen.";
+           Toasts.ShowError("Fehler beim Import","Bitte zuerst ein Event wählen.");
             return;
         }
         try
@@ -169,7 +149,7 @@
 
             if (lines.Count <= 1)
             {
-                Error = "CSV enthält keine Daten.";
+                Toasts.ShowError("Fehler beim Import", "CSV enthält keine Daten.");
                 return;
             }
 
@@ -180,7 +160,7 @@
         }
         catch (Exception ex)
         {
-            Error = $"Fehler beim Lesen: {ex.Message}";
+            Toasts.ShowError("Fehler beim Import", $"Fehler beim Lesen: {ex.Message}");
         }
 
     }
@@ -197,7 +177,7 @@
 
             if (parts.Length < 3)
             {
-                Error = $"Ungültige Zeile: {line}";
+                Toasts.ShowError("Fehler beim Import" ,$"Ungültige Zeile: {line}");
                 return;
             }
 
@@ -253,10 +233,10 @@
         int eventId = int.Parse(SelectedEventId!);
         SuccessCount=0;
         DuplicateCount=0;
-
+        string Desc = $"Import für Event {Events.FirstOrDefault(e=>e.Id==eventId)?.Name} durchgeführt {DateTime.Now}";
         var batch = new ImportBatch
         {
-            Description = $"Import für Event {eventId} am {DateTime.Now}"
+            Description = Desc
         };
         Db.Imports.Add(batch);
         await Db.SaveChangesAsync();
@@ -292,14 +272,16 @@
         }
         
         await Db.SaveChangesAsync();
+        lastImport=Desc;
         StateHasChanged();
-        await Task.Delay(3000);
-       // Nav.NavigateTo("/admin/import/timeentries", true);
+        Toasts.ShowSuccess("Import Erfolgreich",$"Neu hinzugefügt: {SuccessCount} \nÜbersprungen (Duplikate): {DuplicateCount}");
     }
 
     private async Task UndoLastImport(){
-        Error= await TEService.UndoLastImport();
-        Nav.NavigateTo("/admin/import/timeentries", true);
+        var Error= await TEService.UndoLastImport();
+        Toasts.ShowInfo("Info vom Rückgängig machen",Error);
+        await getLastImport();
+        StateHasChanged();
     }
     // ---------------- FUZZY MATCHING -----------------
     private User? FuzzyMatch(string name)
@@ -311,7 +293,7 @@
         .OrderByDescending(s => s.Score)
         .ToList();
 
-        if (ranked.First().Score < -3) // schlechter Treffer
+        if (ranked.First().Score < -3||ranked.First().Score-ranked[1].Score<1) // schlechter Treffer
             return null;
 
         return ranked.First().User;

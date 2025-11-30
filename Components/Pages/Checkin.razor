@@ -5,6 +5,7 @@
 @inject IJSRuntime JS
 @inject Blazored.LocalStorage.ILocalStorageService localStorage
 
+
 @rendermode InteractiveServer
 
 
@@ -27,11 +28,6 @@ else
         <div class="card">
             <h2>@Event.Name - Check-In</h2>
             <p>@Event.Location</p>
-
-            @if (!string.IsNullOrEmpty(Error))
-            {
-                <p style="color:red;">@Error</p>
-            }
 
             <div class="form-group">
                 <label>Name</label>
@@ -84,7 +80,6 @@ else
 
     private string? Name;
     private string? Task;
-    private string? Error;
 
     private LocalSession? ActiveSession;
 
@@ -123,13 +118,13 @@ else
     {
         if (string.IsNullOrWhiteSpace(Name))
         {
-            Error = "Bitte gib deinen Namen ein.";
+            Toasts.ShowError("Check-In fehlgeschlagen", "Bitte gib deinen Namen ein.");
             return;
         }
 
         if (Event!.RequireTask && string.IsNullOrWhiteSpace(Task))
         {
-            Error = "Bitte Aufgabe eingeben.";
+            Toasts.ShowError("Check-In fehlgeschlagen", "Bitte Aufgabe eingeben.");
             return;
         }
         var tempCheckin = DateTime.UtcNow;

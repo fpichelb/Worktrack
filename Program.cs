@@ -34,10 +34,12 @@ builder.Services.AddScoped<TimeEntryService>()
                 .AddScoped<ImpressumService>()
                 .AddScoped<PrivacyPolicyService>()
                 .AddScoped<EventService>();
+                
 
 builder.Services.AddHostedService<AutoCheckoutHostedService>();
 
- builder.Services.AddSingleton<AppState>();
+builder.Services.AddSingleton<ToastService>()
+                .AddSingleton<AppState>();
 
 
 // ------------------------------------------
@@ -53,7 +55,6 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
     app.UseHsts();
 }
-
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();

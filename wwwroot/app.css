@@ -387,7 +387,7 @@ input[type="date"] {
 }
 
 .month-grid {
-  display: grid !important;
+  display: grid ;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: 6px;
   margin-bottom: 10px;
@@ -396,7 +396,7 @@ input[type="date"] {
 
 .month-grid label {
   display: flex;
-  justify-self: start !important;
+  justify-self: start ;
   gap: 6px;
   background: #f7f7f7;
   padding: 6px 10px;
@@ -469,51 +469,38 @@ input[type="date"] {
 
 .toast-stack {
   position: fixed;
-  top: 1.25rem;
-  right: 1.25rem;
+  top: 20px;
+  right: 20px ;
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
-  z-index: 1100;
+  gap: 10px;
+  z-index: 999999;
+  pointer-events: none;
 }
 
 .toast {
+  pointer-events: auto;
   min-width: 260px;
   max-width: 340px;
-  padding: 0.9rem 1rem;
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+  background: #ffffff;
   color: #0f172a;
-  background: #fff;
-  cursor: pointer;
-  animation: toast-in 0.25s ease, toast-out 0.2s ease forwards var(--toast-delay, 0s);
+  padding: 1rem;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+  opacity: 0;
+  transform: translateY(-10px);
+  display: block;
+
+  animation:
+    toast-in 0.3s ease-out forwards,
+    toast-out 0.3s ease-in forwards var(--toast-delay)  ;
 }
 
 .toast-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.6rem;
-  margin-bottom: 0.15rem;
-}
-
-.toast strong {
-  display: block;
-  font-weight: 700;
-}
-
-.toast p {
-  margin: 0;
-  font-size: 0.95rem;
-}
-
-.toast-close {
-  border: none;
-  background: transparent;
-  color: inherit;
-  font-size: 1.1rem;
-  cursor: pointer;
-  line-height: 1;
+  margin-bottom: 0.5rem;
 }
 
 .toast.success {
@@ -532,21 +519,32 @@ input[type="date"] {
   border-left: 4px solid #dc2626;
 }
 
+.toast-close {
+  background: none;
+  border: none;
+  font-size: 1.3rem;
+  cursor: pointer;
+}
+
 @keyframes toast-in {
   from {
-    transform: translateY(-8px) translateX(14px);
     opacity: 0;
+    transform: translateY(-15px);
   }
   to {
-    transform: translateY(0) translateX(0);
     opacity: 1;
+    transform: translateY(0);
   }
 }
 
 @keyframes toast-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
   to {
-    transform: translateX(18px);
     opacity: 0;
+    transform: translateY(15px);
   }
 }
 
@@ -660,7 +658,7 @@ input[type="date"] {
   textarea {
     width: 100%;
     font-size: 15px;
-    padding: 10px !important;
+    padding: 10px ;
   }
 
   .form-control {

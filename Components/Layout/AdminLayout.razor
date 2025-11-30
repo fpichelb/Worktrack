@@ -1,7 +1,7 @@
 @inherits LayoutComponentBase
 @inject NavigationManager Nav
-@inject AppDbContext Db
 @inject AppState State
+
 
 @code {
     private string? Code;
@@ -13,9 +13,9 @@
 
         Code = query.Get("code");
 
-        if(State.CurrentUser == null ) Nav.NavigateTo("/user/login",true);
-        if(State.CurrentUser.Role != "admin") Nav.NavigateTo($"/user/Dashboard/?code={Code}",true);
-    
+        if (State.CurrentUser == null) Nav.NavigateTo("/user/login", true);
+        if (State.CurrentUser.Role != "admin") Nav.NavigateTo($"/user/Dashboard/?code={Code}", true);
+
     }
 
     private string Link(string baseUrl)
@@ -27,7 +27,17 @@
         return $"{baseUrl}?code={Code}";
     }
 }
+<meta charset="utf-8"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+        <base href="/"/>
+        <link rel="stylesheet" href="css/bootstrap/bootstrap.min.css"/>
+        <link rel="stylesheet" href="app.css"/>
+        <link rel="stylesheet" href="Worktrack.styles.css"/>
+        <link rel="icon" type="image/png" href="favicon.png?v=2"/>
+        <script src="_framework/blazor.web.js"></script>
 
+    <script src="/_framework/aspnetcore-browser-refresh.js"></script>
+<ToastHost />
 <div class="layout">
     <header>
         <a href="/">
@@ -41,90 +51,92 @@
         </nav>
 
     </header>
-   
-<main class="container">
-        
-<h2>Admin Dashboard</h2>
 
-<div class="card">
-    <h3>Verwaltung</h3>
-    <p>Wähle einen Bereich:</p>
+    <main class="container">
 
-<div class="container mt-3">
+        <h2>Admin Dashboard</h2>
 
-    <!-- Navigation Tabs -->
-    <ul class="nav nav-tabs mb-4">
+        <div class="card">
+            <h3>Verwaltung</h3>
+            <p>Wähle einen Bereich:</p>
 
-        <li class="nav-item">
-            <a class="nav-link @(Active("users"))"
-                href="@Link("/admin/users")">
-                Benutzer
-            </a>
-        </li>
+            <div class="container mt-3">
 
-        <li class="nav-item">
-            <a class="nav-link @(Active("events"))"
-                href="@Link("/admin/events")">
-                Events
-            </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link @(Active("Seasons"))"
-                href="@Link("/admin/seasons")">
-                Seasons
-            </a>
-        </li>
+                <!-- Navigation Tabs -->
+                <ul class="nav nav-tabs mb-4">
 
-        <li class="nav-item">
-            <a class="nav-link @(Active("pending"))"
-               href="@Link("/admin/pending")">
-                Offene Einträge
-            </a>
-        </li>
+                    <li class="nav-item">
+                        <a class="nav-link @(Active("users"))" href="@Link("/admin/users")">
+                            Benutzer
+                        </a>
+                    </li>
 
-        <li class="nav-item">
-            <a class="nav-link @(Active("archive"))"
-                href="@Link("/admin/archive")">
-                Stunden archivieren
-            </a>
-        </li>
+                    <li class="nav-item">
+                        <a class="nav-link @(Active("events"))" href="@Link("/admin/events")">
+                            Events
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link @(Active("Seasons"))" href="@Link("/admin/seasons")">
+                            Seasons
+                        </a>
+                    </li>
 
-        <li class="nav-item">
-            <a class="nav-link @(Active("import-users"))"
-                href="@Link("/admin/import/users")">
-                User Import
-            </a>
-        </li>
-         <li class="nav-item">
-            <a class="nav-link @(Active("import-timeEntrys"))"
-                href="@Link("/admin/import/timeentries")">
-                Time Entry  Import
-            </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link @(Active("public"))"
-                href="@Link("/admin/public")">
-                Öffentlichkeit
-            </a>
-        </li>
+                    <li class="nav-item">
+                        <a class="nav-link @(Active("pending"))" href="@Link("/admin/pending")">
+                            Offene Einträge
+                        </a>
+                    </li>
 
-    </ul>
+                    <li class="nav-item">
+                        <a class="nav-link @(Active("archive"))" href="@Link("/admin/archive")">
+                            Stunden archivieren
+                        </a>
+                    </li>
 
-    <!-- Admin Page Content -->
-    @Body
+                    <li class="nav-item">
+                        <a class="nav-link @(Active("import-users"))" href="@Link("/admin/import/users")">
+                            User Import
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link @(Active("import-timeEntrys"))" href="@Link("/admin/import/timeentries")">
+                            Time Entry Import
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link @(Active("public"))" href="@Link("/admin/public")">
+                            Öffentlichkeit
+                        </a>
+                    </li>
+
+                </ul>
+                <div style="position:fixed;top:0;right:0;z-index:9999;">
+                
+                </div>
+                <!-- Admin Page Content -->
+                @Body
+            </div>
+        </div>
+
+    </main>
+    
+
+
+<footer>
+        © @(DateTime.Now.Year) Worktrack – All rights reserved.
+        <a href="/impressum">Impressum</a> · 
+        <a href="/datenschutz">Datenschutz</a>
+</footer>
+
 </div>
-</div>
-
-</main>
-</div>
-
 @code {
     string Active(string page)
     {
         var uri = Nav.Uri.ToLower();
         return uri.Contains($"/admin/{page}".ToLower())
-            ? "active"
-            : "";
+        ? "active"
+        : "";
     }
-   
+
 }

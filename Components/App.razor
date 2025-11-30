@@ -1,26 +1,10 @@
-
-
-
-
-
-<!-- Header und andere Layout-Komponenten -->
-    <head>
-        <meta charset="utf-8"/>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-        <base href="/"/>
-        <link rel="stylesheet" href="css/bootstrap/bootstrap.min.css"/>
-        <link rel="stylesheet" href="app.css"/>
-        <link rel="stylesheet" href="Worktrack.styles.css"/>
-        <link rel="icon" type="image/png" href="favicon.png?v=2"/>
-    </head>
-    <Body>
+@using Microsoft.AspNetCore.Components.Routing
     <CascadingAuthenticationState>
-    <Router AppAssembly="@typeof(Program).Assembly">
+        <Router AppAssembly="@typeof(App).Assembly">
         <Found Context="routeData">
             <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
             
         </Found>
-
         <NotFound>
             <LayoutView Layout="@typeof(MainLayout)">
                 <div class="notfound-container">
@@ -32,7 +16,4 @@
         </NotFound>
     </Router>
     </CascadingAuthenticationState>
-    <script src="_framework/blazor.server.js"></script>
-    <script src="/_framework/aspnetcore-browser-refresh.js"></script>
-    </Body>
-
+    

@@ -13,11 +13,6 @@
 
     <InputFile OnChange="@OnFileSelected" />
 
-    @if (!string.IsNullOrEmpty(StatusMessage))
-    {
-        <p class="mt-4">@StatusMessage</p>
-    }
-
     @if (Imported.Any())
     {
         <button class="btn mt-4" @onclick="SaveImported">Speichern (@Imported.Count)</button>
@@ -51,7 +46,6 @@
 
 @code {
     private List<User> Imported = new();
-    private string? StatusMessage;
 
     private async Task OnFileSelected(InputFileChangeEventArgs e)
     {
@@ -80,13 +74,14 @@
                 if(string.IsNullOrWhiteSpace(user.SecretCode)) user.SecretCode = await Uservice.GenerateUniqueCodeAsync();
                 Imported.Add(user);
             }
-
-            StatusMessage = $"Import vorbereitet: {Imported.Count} Nutzer.";
+            StateHasChanged();
+            Toasts.ShowInfo("User Importieren", $"Import vorbereitet: {Imported.Count} Nutzer.");
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Fehler beim Lesen: {ex.Message}";
+            Toasts.ShowError("User Importieren", $"Fehler beim Lesen: {ex.Message}");
         }
+        
     }
 
     private async Task SaveImported()
@@ -96,13 +91,14 @@
 
         if (!newUsers.Any())
         {
-            StatusMessage = "Keine neuen Nutzer.";
+            Toasts.ShowError("","Keine neuen Nutzer.");
             return;
         }
 
         await Db.Users.AddRangeAsync(newUsers);
         await Db.SaveChangesAsync();
         Imported.Clear();
-        StatusMessage = $"Gespeichert: {newUsers.Count} Nutzer.";
+
+        Toasts.ShowSuccess("User Importieren",$"{newUsers.Count} Nutzer wurden in die Datenbank importiert.");
     }
 }

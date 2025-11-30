@@ -40,10 +40,10 @@
                         <td>@e.NameEntered</td>
                         <td>@e.Event?.Name</td>
                         <td>@(string.IsNullOrEmpty(e.Task) ? "-" : e.Task)</td>
-                        <td>@e.CheckIn.Value.ToLocalTime()</td>
+                        <td>@e.CheckIn?.ToLocalTime()</td>
                         <td>@(e.CheckOut.HasValue? e.CheckOut.Value.ToLocalTime().ToString() : "-")</td>
                         <td>
-                            <select  @onchange="(args) => AssignUser(e, args.Value?.ToString())">
+                            <select @key="e.Id" @onchange="(args) => AssignUser(e, args.Value?.ToString())">
                                 <option value="">-- User wählen --</option>
 
                                 @{
@@ -97,9 +97,9 @@
             entry.Status = entry.CheckOut.HasValue ? "checked_out" : "checked_in";
 
             await Db.SaveChangesAsync();
-
             Pending?.Remove(entry);
             StateHasChanged();
+            Toasts.ShowSuccess("Entry zugewiesen",$"{user.Name} wurden erfolgreich {entry.DurationHours} hinzugefügt.");
         }
     }
 

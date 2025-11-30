@@ -177,7 +177,7 @@
 }
 
 @code {
-    private List<Event>? Events;
+    private List<Event> Events = new();
     private Event NewEvent = new();
     private Dictionary<int, string> QrCache = new();
     private string? LargeQrBase64 = null;
@@ -198,6 +198,7 @@
     private async Task Save(Event e)
     {
         await EService.UpdateEventAsync(e);
+        Toasts.ShowSuccess("Event gespeichert",$"Event {e.Name} wurde gespeichert");
     }
 
     private async Task SelectEvent(Event e)
@@ -209,21 +210,28 @@
 
     private async Task CreateEvent()
     {
-        if (string.IsNullOrWhiteSpace(NewEvent.Name) || string.IsNullOrWhiteSpace(NewEvent.Location))
+        if (string.IsNullOrWhiteSpace(NewEvent.Name) || string.IsNullOrWhiteSpace(NewEvent.Location)){
+            Toasts.ShowError("Event erstellung","Bitte geben sie einen Namen und einen Ort an");
             return;
+            }
 
 
         NewEvent.IsActive = true;
 
-        await EService.CreateEventAsync(NewEvent);
+        var addedE = await EService.CreateEventAsync(NewEvent);
+        Events.Insert(0,addedE);
         StateHasChanged();
+        Toasts.ShowSuccess("Event erstellt",$"Event {NewEvent.Name} wurde erstellt.");
         NewEvent = new();
+        NewEvent.StartTime=DateTime.Today;
     }
 
     private async Task ToggleActive(Event e)
     {
         e.IsActive = !e.IsActive;
         await EService.UpdateEventAsync(e);
+        var mode=e.IsActive?"aktiv":"nicht aktiv"; 
+        Toasts.ShowInfo("Event verändert",$"{e.Name} ist nun {mode}");
     }
 
     private async Task DeleteEvent(Event e)
@@ -231,7 +239,7 @@
 
         await EService.DeleteEventAsync(e.Id);
         Events?.Remove(e);
-
+        Toasts.ShowInfo("Event Gelöscht",$"{e.Name} wurde gelöscht.");
     }
 
     private void ShowLargeQR(int eventId)
