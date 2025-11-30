@@ -273,6 +273,7 @@
         
         await Db.SaveChangesAsync();
         lastImport=Desc;
+        Preview.Clear();
         StateHasChanged();
         Toasts.ShowSuccess("Import Erfolgreich",$"Neu hinzugefügt: {SuccessCount} \nÜbersprungen (Duplikate): {DuplicateCount}");
     }
