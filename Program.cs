@@ -33,13 +33,13 @@ builder.Services.AddScoped<TimeEntryService>()
                 .AddScoped<SeasonService>()
                 .AddScoped<ImpressumService>()
                 .AddScoped<PrivacyPolicyService>()
+                .AddScoped<ToastService>()
                 .AddScoped<EventService>();
                 
 
 builder.Services.AddHostedService<AutoCheckoutHostedService>();
 
-builder.Services.AddSingleton<ToastService>()
-                .AddSingleton<AppState>();
+builder.Services.AddSingleton<AppState>();
 
 
 // ------------------------------------------
