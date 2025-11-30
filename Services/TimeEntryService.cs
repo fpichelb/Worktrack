@@ -193,7 +193,7 @@ public class TimeEntryService
             .ToListAsync();
 
         double total = entries.Sum(e => e.DurationHours ?? 0);
-
+        total += user.BonusHours; 
         user.ArchivedHours += total;
 
         // Optional: mark entries as archived ? Up to you
@@ -218,7 +218,7 @@ public class TimeEntryService
 
             double userHours = userEntries
             .Sum(e => e.DurationHours ?? 0);
-
+            userHours += user.BonusHours;
             if (userHours > 0)
             {
                 user.ArchivedHours += userHours;
