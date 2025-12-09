@@ -1,0 +1,115 @@
+@page "/user/submit-hours"
+@using Microsoft.EntityFrameworkCore
+@inject ToastService Toast
+@inject NavigationManager Nav
+@inject AppDbContext Db
+@inject AppState State
+@rendermode InteractiveServer
+
+<h2 class="title">Arbeitsstunden einreichen</h2>
+<p class="subtitle">Trage hier deine geleisteten Stunden ein. Wähle dazu das passende Event aus.</p>
+
+<div class="card">
+
+    @foreach (var row in Rows)
+    {
+        <div class="multi-row-5">
+
+            <select class="input" @bind="row.EventId">
+                
+
+                @foreach (var ev in Events)
+                {
+                    <option value="@ev.Id">@ev.Name</option>
+                }
+            </select>
+
+            <input type="date" class="input" @bind="row.Date" />
+
+            <input type="number" step="0.25" class="input"
+                   placeholder="Stunden"
+                   @bind="row.Hours" />
+
+            <input type="text" class="input"
+                   placeholder="Beschreibung"
+                   @bind="row.Description" />
+
+            <button class="btn-remove" @onclick="@(() => RemoveRow(row))">✕</button>
+        </div>
+    }
+
+    <button class="btn-add" @onclick="AddRow">+ Eintrag hinzufügen</button>
+    <button class="btn primary" @onclick="Submit">Einreichen</button>
+</div>
+
+@code {
+    public class UserHourEntryInput
+{
+    public int? EventId { get; set; }
+    public DateTime Date { get; set; } = DateTime.Today;
+    public double Hours { get; set; }
+    public string Description { get; set; } = "";
+}
+
+    private List<UserHourEntryInput> Rows = new();
+    private List<Event> Events = new();
+
+ protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender){
+            if (State.CurrentUser == null){ 
+                Nav.NavigateTo("/user/login", true);
+                return;
+                }
+            CurrentUser =State.CurrentUser;
+            
+        }
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        Events = await Db.Events
+            .OrderBy(e => e.Name)
+            .ToListAsync();
+
+        AddRow();
+    }
+
+    void AddRow() => Rows.Add(new UserHourEntryInput());
+
+    void RemoveRow(UserHourEntryInput row) => Rows.Remove(row);
+
+    private async Task Submit()
+    {
+        if (!Rows.Any(r => r.Hours > 0))
+        {
+            Toast.ShowWarning("Fehler beim Stunden einreichen","Bitte mindestens einen Eintrag ausfüllen.");
+            return;
+        }
+
+        foreach (var r in Rows)
+        {
+            var entry = new TimeEntry
+            {
+                UserName = null,
+                NameEntered = CurrentUser.Name, // aus SecretCode ermitteln
+                Status = "pending_assignment",
+                EventId = r.EventId??0,
+                DurationHours = r.Hours,
+                CheckIn = r.Date,
+                CheckOut = DateTime.UtcNow,
+                Task = r.Description,
+            };
+
+            Db.TimeEntry.Add(entry);
+        }
+
+        await Db.SaveChangesAsync();
+
+        Toast.ShowSuccess("Stunden einreichen","Stunden erfolgreich eingereicht!");
+
+        Rows.Clear();
+        AddRow();
+    }
+
+    private User CurrentUser = new User(); 
+}

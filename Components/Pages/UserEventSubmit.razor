@@ -1,0 +1,115 @@
+@page "/user/event-entry"
+@using Microsoft.EntityFrameworkCore
+@inject AppDbContext Db
+@inject ToastService Toast
+@inject NavigationManager Nav
+@rendermode InteractiveServer
+
+<h2 class="title">Eventstunden eintragen</h2>
+<h3 class="subtitle">Trage hier die Arbeitsstunden für ein bestimmtes Event und mehrere Teilnehmer ein.</h3>
+
+<div class="card">
+
+    <label class="label">Event auswählen</label>
+    <select class="input" @bind="SelectedEventId">
+        <option value="">Bitte wählen...</option>
+        @foreach (var ev in Events)
+        {
+            <option value="@ev.Id">@ev.Name</option>
+        }
+    </select>
+    <label class="label">Datum auswählen</label>
+    <input type=date class="form-control" @bind="SelectedTime"/>
+
+    <h3 class="section-title">Teilnehmer & Stunden</h3>
+
+    @foreach (var row in Rows)
+    {
+        <div class="multi-row-4">
+            <input class="input" placeholder="Name"
+                   @bind="row.Name" />
+
+            <input type="number" step="0.25" class="input"
+                   placeholder="Stunden"
+                   @bind="row.Hours" />
+
+            <input class="input"
+                   placeholder="Beschreibung"
+                   @bind="row.Description" />
+
+            <button class="btn-remove"
+                    @onclick="@(() => RemoveRow(row))">✕</button>
+        </div>
+    }
+
+    <button class="btn-add" @onclick="AddRow">+ Zeile hinzufügen</button>
+    <button class="btn primary" @onclick="Submit">Einreichen</button>
+
+</div>
+
+@code {
+    public class MultiEventEntryRow
+{
+    public string Name { get; set; } = "";
+    public double Hours { get; set; }
+    public string Description { get; set; } = "";
+    
+}
+    private List<Event> Events = new();
+    private int? SelectedEventId;
+    private DateTime SelectedTime=DateTime.UtcNow;
+    private List<MultiEventEntryRow> Rows = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        Events = await Db.Events.OrderBy(e => e.Name).ToListAsync();
+        AddRow();
+    }
+    void AddRow() =>Rows.Add(new MultiEventEntryRow());
+    void RemoveRow(MultiEventEntryRow row) => Rows.Remove(row);
+
+    private async Task Submit()
+    {
+        if (SelectedEventId == null)
+        {
+            Toast.ShowWarning("Fehler beim Einreichen","Bitte ein Event auswählen.");
+            return;
+        }
+
+        if (!Rows.Any(r => r.Hours > 0 && !string.IsNullOrWhiteSpace(r.Name)))
+        {
+            Toast.ShowWarning("Fehler beim Einreichen","Bitte mindestens eine gültige Zeile ausfüllen.");
+            return;
+        }
+
+        
+         var SelectedEvent = await Db.Events.FindAsync(SelectedEventId);
+        foreach (var row in Rows)
+        {
+            if (string.IsNullOrWhiteSpace(row.Name) || row.Hours <= 0)
+                continue;
+
+            var entry = new TimeEntry
+            {
+                EventId = SelectedEventId??0,
+                Event = SelectedEvent,
+                NameEntered = row.Name,
+                Status = "pending_assignment",
+                CheckIn = SelectedTime,
+                CheckOut = DateTime.Now,
+                DurationHours = row.Hours,
+                Task = row.Description,
+                
+            };
+
+            Db.TimeEntry.Add(entry);
+        }
+
+        await Db.SaveChangesAsync();
+
+        Toast.ShowSuccess("Stunden Einreichen","Einträge erfolgreich eingereicht!");
+
+        Rows.Clear();
+        AddRow();
+    }
+}
