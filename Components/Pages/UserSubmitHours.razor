@@ -17,7 +17,7 @@
 
             <select class="input" @bind="row.EventId">
                 
-
+                <option value="-1">---Auswählen---</option>
                 @foreach (var ev in Events)
                 {
                     <option value="@ev.Id">@ev.Name</option>
@@ -45,7 +45,7 @@
 @code {
     public class UserHourEntryInput
 {
-    public int? EventId { get; set; }
+    public int? EventId { get; set; } 
     public DateTime Date { get; set; } = DateTime.Today;
     public double Hours { get; set; }
     public string Description { get; set; } = "";
@@ -80,6 +80,11 @@
 
     private async Task Submit()
     {
+        if (!Rows.Any(r => r.EventId > 0))
+        {
+            Toast.ShowWarning("Fehler beim Stunden einreichen","Bitte wähle für alle Zeilen ein Event aus.");
+            return;
+        }
         if (!Rows.Any(r => r.Hours > 0))
         {
             Toast.ShowWarning("Fehler beim Stunden einreichen","Bitte mindestens einen Eintrag ausfüllen.");
@@ -91,9 +96,9 @@
             var entry = new TimeEntry
             {
                 UserName = null,
-                NameEntered = CurrentUser.Name, // aus SecretCode ermitteln
+                NameEntered = CurrentUser.Name,
                 Status = "pending_assignment",
-                EventId = r.EventId??0,
+                EventId = r.EventId??1,
                 DurationHours = r.Hours,
                 CheckIn = r.Date,
                 CheckOut = DateTime.UtcNow,
