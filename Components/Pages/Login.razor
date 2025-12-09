@@ -47,7 +47,7 @@
         State.CurrentUser=user;
         Console.WriteLine("State gesetzt: " + State.CurrentUser?.Name);
         //Logger.LogInformation("Log In from: {code}",user.Name);
-        Nav.NavigateTo($"/user/dashboard?code={user.SecretCode}", forceLoad: true);
+        Nav.NavigateTo($"/user/dashboard", forceLoad: true);
     }
 
     public class LoginModel

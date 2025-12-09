@@ -5,17 +5,4 @@
 
 @code{
 
-     protected override async Task OnInitializedAsync()
-    {
-        // Secret code from URL
-        var code = System.Web.HttpUtility.ParseQueryString(
-            new Uri(Nav.Uri).Query).Get("code");
-
-        if (code == null)
-        {
-            Nav.NavigateTo("/user/login");
-            return;
-        }
-    }
-    
 }
