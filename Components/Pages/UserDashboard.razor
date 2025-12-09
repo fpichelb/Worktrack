@@ -3,6 +3,8 @@
 
 @inject NavigationManager Nav
 @inject AppDbContext Db
+
+@inject AppState state
 @rendermode InteractiveServer
 
 <h2>User Dashboard</h2>
@@ -118,7 +120,7 @@ else
 }
 
 @code {
-    private User? CurrentUser;
+    private User CurrentUser = new User();
     private List<TimeEntry> UserEntries = new();
     private List<EventStatsModel> MyEventStats = new();
 
@@ -128,23 +130,14 @@ else
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
-        {// Secret code from URL
-            var code = System.Web.HttpUtility.ParseQueryString(
-            new Uri(Nav.Uri).Query).Get("code");
-
-            if (code == null)
+        {
+            if (state.CurrentUser == null)
             {
                 Nav.NavigateTo("/user/login");
                 return;
             }
 
-            CurrentUser = await Db.Users.FirstOrDefaultAsync(u => u.SecretCode == code);
-            if (CurrentUser == null)
-            {
-                Nav.NavigateTo("/user/login");
-                return;
-            }
-           
+            CurrentUser = state.CurrentUser;
             await LoadStats();
             StateHasChanged();
         }
@@ -183,7 +176,7 @@ else
             EventId = g.Key,
             EventName = g.First().Event!.Name,
             Location = g.First().Event!.Location,
-            Date = g.First().CheckIn.Value,
+            Date = g.First().CheckIn??DateTime.MinValue,
             Hours = g.Sum(e =>
     (e.DurationHours??0))
         })
@@ -194,6 +187,7 @@ else
 
     private void Logout()
     {
+        state.CurrentUser = null;
         Nav.NavigateTo("/user/login", forceLoad: true);
     }
 

@@ -54,16 +54,17 @@
     private List<UserHourEntryInput> Rows = new();
     private List<Event> Events = new();
 
- protected override async Task OnAfterRenderAsync(bool firstRender)
+ protected override Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender){
             if (State.CurrentUser == null){ 
                 Nav.NavigateTo("/user/login", true);
-                return;
+                return Task.CompletedTask;
                 }
             CurrentUser =State.CurrentUser;
             
         }
+        return Task.CompletedTask;
     }
     protected override async Task OnInitializedAsync()
     {

@@ -28,7 +28,7 @@
             var uri = new Uri(Nav.Uri);;
             var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
 
-            time = query["time"];
+            time = query["time"]??"0";
             StateHasChanged();
             Console.WriteLine("Time ist  "+time);
         }else{
