@@ -119,7 +119,7 @@ else
 }
 
 @code {
-    private User CurrentUser = new User();
+    private User? CurrentUser;
     private List<TimeEntry> UserEntries = new();
     private List<EventStatsModel> MyEventStats = new();
 
@@ -146,6 +146,7 @@ else
 
     private async Task saveStats(ChangeEventArgs e)
     {
+        if(CurrentUser is null) return;
         CurrentUser.ShareStats = bool.TryParse(e.Value?.ToString(),out var  v)&&v;
         Db.Users.Update(CurrentUser);
         await Db.SaveChangesAsync();
@@ -163,6 +164,7 @@ else
         TotalHours = UserEntries.Sum(e =>
         e.DurationHours ?? 0);
 
+        if (!(CurrentUser is null))
         TotalHours+=CurrentUser.BonusHours;
 
         EventsVisited = UserEntries
