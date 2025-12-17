@@ -11,14 +11,6 @@
 @if ((CurrentUser is null))
 {
     <p>Lade Daten...</p>
-    <p></p>
-    <div class="flex flex-col sm:flex-row gap-4">
-        <a class="btn mt-4" style="bottom-margin=40px;"href="/user/login">
-            oder doch noch Login?
-        </a>
-
-      
-    </div>
 }
 else
 {
@@ -138,16 +130,16 @@ private bool _load =false ;
 
 protected override async Task OnAfterRenderAsync(bool firstRender)
 {
-    //if (firstRender){ _load =true; return;}
-    if (firstRender && CurrentUser is null)
-        {
-
+    //if (firstRender){ _load =true; return;} 
+    if (CurrentUser is null)
+    {
+    await Task.Delay(300);
     var user = await Auth.GetCurrentUserAsync();
 
     if (user == null)
         return; // WARTEN – kein Redirect, kein Load
 
-    CurrentUser = await Auth.GetCurrentUserAsync();
+    CurrentUser = user;
     await LoadStats();
 
     await InvokeAsync(StateHasChanged);
