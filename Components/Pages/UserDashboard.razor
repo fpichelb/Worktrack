@@ -128,17 +128,21 @@ else
     private double TotalHours = 0;
     private int EventsVisited = 0;
 
-    private bool _loaded = false;
+    private bool _loaded;
 
-   protected override async Task OnInitializedAsync()
+protected override async Task OnAfterRenderAsync(bool firstRender)
 {
-    //await Task.Delay(500);
-    CurrentUser = await Auth.GetCurrentUserAsync();
-    if (CurrentUser != null)
-    {
-        await LoadStats();
-        await InvokeAsync(StateHasChanged);
-    }
+    if (_loaded)
+        return;
+
+    var authed = await Auth.GetCurrentUserAsync();
+    if (authed == null)
+        return; // WARTEN, nicht redirecten
+
+    _loaded = true;
+    CurrentUser = authed;
+    await LoadStats();
+    StateHasChanged();
 }
 
     private async Task saveStats(ChangeEventArgs e)
