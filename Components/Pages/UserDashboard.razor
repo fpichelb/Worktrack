@@ -8,7 +8,7 @@
 
 <h2>User Dashboard</h2>
 
-@if (CurrentUser is null)
+@if ((CurrentUser is null))
 {
     <p>Lade Daten...</p>
     <p></p>
@@ -133,25 +133,25 @@ else
 
     private double TotalHours = 0;
     private int EventsVisited = 0;
-    private bool _interactiveReady;
 
- private bool _loaded;
+private bool _load =false ;
 
 protected override async Task OnAfterRenderAsync(bool firstRender)
 {
-    if (_loaded)
-        return;
+    //if (firstRender){ _load =true; return;}
+    if (firstRender && CurrentUser is null)
+        {
 
     var user = await Auth.GetCurrentUserAsync();
 
     if (user == null)
         return; // WARTEN – kein Redirect, kein Load
 
-    _loaded = true;
-    CurrentUser = user;
-
+    CurrentUser = await Auth.GetCurrentUserAsync();
     await LoadStats();
+
     await InvokeAsync(StateHasChanged);
+    }
 }
 
     private async Task saveStats(ChangeEventArgs e)

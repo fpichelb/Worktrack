@@ -27,17 +27,16 @@ public class AuthStateProvider : AuthenticationStateProvider
 
         var identity = new ClaimsIdentity(claims, "CookieAuth");
         var principal = new ClaimsPrincipal(identity);
-        Console.WriteLine("LOGIN ENDPOINT REACHED");
 
         try
         {
-            
-            await HttpContextAccessor.HttpContext.SignInAsync("CookieAuth", principal,new AuthenticationProperties
+            if (HttpContextAccessor.HttpContext is null) return;
+            await HttpContextAccessor.HttpContext.SignInAsync("CookieAuth", principal, new AuthenticationProperties
             {
                 IsPersistent = true,
                 ExpiresUtc = DateTimeOffset.UtcNow.AddDays(15)
             });
-            Console.WriteLine("SIGNIN CALLED");
+            NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(principal)));
         }
         catch (Exception ex)
         {
@@ -65,7 +64,7 @@ public class AuthStateProvider : AuthenticationStateProvider
     public override async Task<AuthenticationState> GetAuthenticationStateAsync()
     {
         var httpContext = HttpContextAccessor.HttpContext;
-    
+        if (httpContext is null) return new AuthenticationState(_anonymous);
         var authenticateResult = await httpContext.AuthenticateAsync("CookieAuth");
         if (!authenticateResult.Succeeded) {
             Console.WriteLine("Failed to authenticate");
