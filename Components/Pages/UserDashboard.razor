@@ -135,7 +135,7 @@ else
         if (firstRender){ _load =true; StateHasChanged(); return;}
         if (_load&&CurrentUser is null)
         {
-            //await Task.Delay(300);
+            await Task.Delay(300);
             var user = await Auth.GetCurrentUserAsync();
 
             if (user == null)
