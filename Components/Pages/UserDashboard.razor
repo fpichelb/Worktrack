@@ -130,19 +130,15 @@ else
 
     private bool _loaded = false;
 
-   protected override async Task OnAfterRenderAsync(bool firstRender)
+   protected override async Task OnInitializedAsync()
 {
-    if (_loaded)
-        return;
     await Task.Delay(500);
-    var authed = await Auth.GetCurrentUserAsync();
-    if (authed == null)
-        return; // WARTEN, nicht redirecten
-
-    _loaded = true;
-    CurrentUser = authed;
-    await LoadStats();
-    StateHasChanged();
+    CurrentUser = await Auth.GetCurrentUserAsync();
+    if (CurrentUser != null)
+    {
+        await LoadStats();
+        await InvokeAsync(StateHasChanged);
+    }
 }
 
     private async Task saveStats(ChangeEventArgs e)
