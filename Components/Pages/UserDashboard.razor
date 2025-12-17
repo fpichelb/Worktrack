@@ -137,6 +137,7 @@ else
 
     protected override async Task OnInitializedAsync()
 {
+    if(CurrentUser is null)
     CurrentUser = await Auth.GetCurrentUserAsync();
     if (!(CurrentUser is null))
     {
