@@ -171,6 +171,7 @@ else
 
             if (Event!.AutoMatchUsers)
             {
+                if(ActiveSession==null) return;
                 var user = await Db.Users
                 .FirstOrDefaultAsync(u => u.Name == ActiveSession.Name);
 

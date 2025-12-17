@@ -3,8 +3,7 @@
 
 @inject NavigationManager Nav
 @inject AppDbContext Db
-
-@inject AppState state
+@inject AuthStateProvider Auth
 @rendermode InteractiveServer
 
 <h2>User Dashboard</h2>
@@ -131,13 +130,15 @@ else
     {
         if (firstRender)
         {
-            if (state.CurrentUser == null)
+            User? Authed = await Auth.GetCurrentUserAsync();
+            if (Authed == null)
             {
+                Console.WriteLine("NotAuthed");
                 Nav.NavigateTo("/user/login");
                 return;
             }
 
-            CurrentUser = state.CurrentUser;
+            CurrentUser = Authed;
             await LoadStats();
             StateHasChanged();
         }
@@ -187,8 +188,7 @@ else
 
     private void Logout()
     {
-        state.CurrentUser = null;
-        Nav.NavigateTo("/user/login", forceLoad: true);
+        Nav.NavigateTo("/auth/logout", forceLoad: true);
     }
 
     public class EventStatsModel

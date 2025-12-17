@@ -65,10 +65,23 @@ namespace Worktrack.Services
             await Db.SaveChangesAsync();
             return true;
         }
+        public async Task<User?> GetUserById(int Id)
+        {
+            return await Db.Users.FirstOrDefaultAsync(u => u.Id == Id);
+        }
+        public async Task<User?> ValidateSecretCodeAsync(string secretCode)
+        {
+            return await Db.Users.FirstOrDefaultAsync(u =>
+            u.SecretCode.Trim() == secretCode.Trim().ToUpper());
+        }
+        public async Task<User?> GetUserByStringId(String Id)
+        {
+            return await Db.Users.FirstOrDefaultAsync(u => u.Id.ToString() == Id);
+        }
+
         public async Task<List<User>> GetAllAsync()
         {
             return await Db.Users.OrderBy(u => u.Name).ToListAsync();
         }
-        
     }
 }

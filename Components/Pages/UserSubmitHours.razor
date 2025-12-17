@@ -3,7 +3,8 @@
 @inject ToastService Toast
 @inject NavigationManager Nav
 @inject AppDbContext Db
-@inject AppState State
+@inject AuthStateProvider Auth
+
 @rendermode InteractiveServer
 
 <h2 class="title">Arbeitsstunden einreichen</h2>
@@ -44,27 +45,27 @@
 
 @code {
     public class UserHourEntryInput
-{
-    public int? EventId { get; set; } 
-    public DateTime Date { get; set; } = DateTime.Today;
-    public double Hours { get; set; }
-    public string Description { get; set; } = "";
-}
+    {
+        public int? EventId { get; set; } 
+        public DateTime Date { get; set; } = DateTime.Today;
+        public double Hours { get; set; }
+        public string Description { get; set; } = "";
+    }
 
     private List<UserHourEntryInput> Rows = new();
     private List<Event> Events = new();
 
- protected override Task OnAfterRenderAsync(bool firstRender)
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender){
-            if (State.CurrentUser == null){ 
-                Nav.NavigateTo("/user/login", true);
-                return Task.CompletedTask;
-                }
-            CurrentUser =State.CurrentUser;
-            
+            User? Authed = await Auth.GetCurrentUserAsync();
+            if (Authed is null){
+                Nav.NavigateTo("user/login",true);
+                return;
+            }
+            CurrentUser=Authed;
         }
-        return Task.CompletedTask;
+        return ;
     }
     protected override async Task OnInitializedAsync()
     {

@@ -1,36 +1,27 @@
 @inherits LayoutComponentBase
 @inject NavigationManager Nav
-@inject AppState State
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthStateProvider Auth
 
 
 @code {
-    protected override Task OnInitializedAsync()
+    protected override async Task OnInitializedAsync()
 {
-    if (State.CurrentUser == null)
+    var authState = await Auth.GetAuthenticationStateAsync();
+    var user = authState.User;
+    
+    if (!user.Identity?.IsAuthenticated ??false)
     {
         Nav.NavigateTo("/user/login", true);
-        return Task.CompletedTask;
+        return;
     }
 
-    if (State.CurrentUser.Role != "admin")
+    if (!user.IsInRole("admin"))
     {
         Nav.NavigateTo("/user/dashboard", true);
-        return Task.CompletedTask;
     }
-
-    return Task.CompletedTask;
 }
 }
-<meta charset="utf-8"/>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-        <base href="/"/>
-        <link rel="stylesheet" href="css/bootstrap/bootstrap.min.css"/>
-        <link rel="stylesheet" href="app.css"/>
-        <link rel="stylesheet" href="Worktrack.styles.css"/>
-        <link rel="icon" type="image/png" href="favicon.png?v=2"/>
-        <script src="_framework/blazor.web.js"></script>
-
-    <script src="/_framework/aspnetcore-browser-refresh.js"></script>
 <ToastHost />
 <div class="layout">
     <header>

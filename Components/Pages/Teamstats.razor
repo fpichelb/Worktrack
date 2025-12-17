@@ -3,8 +3,8 @@
 
 @inject AppDbContext Db
 @inject NavigationManager Nav
+@inject AuthStateProvider Auth
 @inject SeasonService seasonService
-@inject AppState state
 
 <h2>Team Event Statistik</h2>
 
@@ -118,18 +118,19 @@ else
     private Dictionary<Season, List<Event>> SeasonGroups = new();
     private Dictionary<string, List<EventUserStats>> EventStats = new();
 
-    protected override Task OnAfterRenderAsync(bool firstRender){
-        if(firstRender){
-            if(state.CurrentUser==null){
+   protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender){
+            User? Authed = await Auth.GetCurrentUserAsync();
+            if (Authed is null){
                 Nav.NavigateTo("user/login",true);
-                return Task.FromException(new Exception("Nicht angemeldet"));
+                return;
             }
-            if(!state.CurrentUser.ShareStats){
+            if(!Authed.ShareStats){
                 Nav.NavigateTo("user/login",true);
-                return Task.FromException(new Exception("Teilt Daten nicht!"));
+                return ;
             }
-        }
-        return Task.CompletedTask;
+        } 
     }
     protected override async Task OnInitializedAsync()
     {

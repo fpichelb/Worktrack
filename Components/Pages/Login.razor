@@ -1,13 +1,7 @@
 ﻿@page "/user/login"
+@using Microsoft.EntityFrameworkCore.Metadata.Internal
 @inject NavigationManager Nav
-@inject Worktrack.Data.AppDbContext Db
-
-@inject ILogger<Login> Logger
-@inject AppState State
-
-@rendermode InteractiveServer
-
-
+@inject AuthStateProvider Auth
 
 
 <h2>Worktrack Login</h2>
@@ -16,9 +10,10 @@
     <EditForm Model="@Model" OnValidSubmit="@HandleLogin" FormName="Login">
         <DataAnnotationsValidator />
         <ValidationSummary />
+        <AntiforgeryToken />
 
         <label>Secret Code</label>
-        <InputText @bind-Value="Model.SecretCode" />
+        <InputText @bind-value="Model.SecretCode" />
 
         @if (!string.IsNullOrEmpty(Error))
         {
@@ -30,28 +25,27 @@
 </div>
 
 @code {
-    private LoginModel Model = new();
+    [SupplyParameterFromForm] 
+    private LoginModel Model { get; set; } = new();
     private string? Error;
 
     private async Task HandleLogin()
     {
-        var user = await Db.Users
-            .FirstOrDefaultAsync(u => u.SecretCode.Trim() == Model.SecretCode.Trim().ToUpper());
+        var user = await UService.ValidateSecretCodeAsync(Model.SecretCode);
         
-        Console.WriteLine(Model.SecretCode);
-        if (user == null)
+        if (user is null)
         {
             Error = "Invalid code. Please try again.";
             return;
         }
-        State.CurrentUser=user;
-        Console.WriteLine("State gesetzt: " + State.CurrentUser?.Name);
+        await Auth.SignInAsync(user.Name,user.Role,user.Id);
+        Console.WriteLine("State gesetzt: " + user?.Name);
         //Logger.LogInformation("Log In from: {code}",user.Name);
-        Nav.NavigateTo($"/user/dashboard", forceLoad: true);
+        Nav.NavigateTo("/user/dashboard", forceLoad: true);
     }
-
-    public class LoginModel
+     public class LoginModel
     {
+       
         public string SecretCode { get; set; } = "";
     }
 }

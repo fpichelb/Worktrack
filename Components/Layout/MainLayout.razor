@@ -1,17 +1,18 @@
 @inherits LayoutComponentBase
 @inject NavigationManager Nav
-@inject AppState State
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+@inject AuthStateProvider Auth
 
-<meta charset="utf-8"/>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-        <base href="/"/>
-        <link rel="stylesheet" href="css/bootstrap/bootstrap.min.css"/>
-        <link rel="stylesheet" href="app.css"/>
-        <link rel="stylesheet" href="Worktrack.styles.css"/>
-        <link rel="icon" type="image/png" href="favicon.png?v=2"/>
-        <script src="_framework/blazor.web.js"></script>
-
-    <script src="/_framework/aspnetcore-browser-refresh.js"></script>
+@code{
+    ClaimsPrincipal? user;
+    bool IsAdmin => user?.IsInRole("admin") == true;
+    protected override async Task OnInitializedAsync(){
+        var authState = await Auth.GetAuthenticationStateAsync();
+        user = authState.User;
+        // 🔒 Nicht eingeloggt
+    }
+}
     <ToastHost/>
 <div class="layout">
     <header>
@@ -22,7 +23,7 @@
         <nav>
             <a href="/user/login">User Login</a>
             <a href="/user/dashboard">Dashboard</a>
-            @if(State.CurrentUser?.Role == "admin"){
+            @if(IsAdmin){
             <a href="/admin/dashboard">Admin</a>}
         </nav>
 
