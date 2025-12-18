@@ -11,7 +11,7 @@
 
 @if ((CurrentUser is null))
 {
-    <p>Lade Daten...</p>
+    <p>Lade Daten!...</p>
 }
 else
 {
@@ -151,7 +151,7 @@ protected override async Task OnAfterRenderAsync(bool firstRender)
         return; // WARTEN, nicht redirecten
     CurrentUser = authed;
     await LoadStats();
-    StateHasChanged();
+    await InvokeAsync(StateHasChanged);
     }
 }
 
