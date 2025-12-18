@@ -2,13 +2,14 @@
 @inject NavigationManager Nav
 @using Microsoft.AspNetCore.Components.Authorization
 @using System.Security.Claims
-@inject AuthStateProvider Auth
 
 @code{
     ClaimsPrincipal? user;
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthenticationStateTask { get; set; } = default!;
     bool IsAdmin => user?.IsInRole("admin") == true;
     protected override async Task OnInitializedAsync(){
-        var authState = await Auth.GetAuthenticationStateAsync();
+        var authState = await AuthenticationStateTask;
         user = authState.User;
         // 🔒 Nicht eingeloggt
     }

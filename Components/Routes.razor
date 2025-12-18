@@ -1,6 +1,23 @@
-﻿<Router AppAssembly="typeof(Program).Assembly">
-    <Found Context="routeData">
-        <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
-        <FocusOnNavigate RouteData="routeData" Selector="h1" />
-    </Found>
+﻿@using Microsoft.AspNetCore.Components.Authorization
+@using Worktrack.Components.Layout
+
+<Router AppAssembly="@typeof(App).Assembly" >
+        <Found Context="routeData">
+             <AuthorizeRouteView RouteData="@routeData"
+                                DefaultLayout="@typeof(MainLayout)">
+                <NotAuthorized>
+                    <RedirectToLogin />
+                </NotAuthorized>
+            </AuthorizeRouteView>
+        </Found>
+
+        <NotFound>
+            <LayoutView Layout="@typeof(MainLayout)">
+                <div class="notfound-container">
+                    <h1>Page not found</h1>
+                    <p>Sorry, there's nothing at this address.</p>
+                    <a href="/" class="btn">Go back home</a>
+                </div>
+            </LayoutView>
+        </NotFound>
 </Router>

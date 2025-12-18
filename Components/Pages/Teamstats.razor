@@ -1,13 +1,13 @@
 @page "/teamstats"
+@attribute [Authorize]
 @using System.Text.RegularExpressions
-
 @inject AppDbContext Db
 @inject NavigationManager Nav
-@inject AuthStateProvider Auth
 @inject SeasonService seasonService
 
 <h2>Team Event Statistik</h2>
-
+<AuthorizeView Context="auth">
+    <Authorized>
 @if (Users == null || Events == null)
 {
     <p>Lade Daten...</p>
@@ -108,8 +108,11 @@ else
         </div>
     }
 }
-
+</Authorized>
+</AuthorizeView>
 @code {
+    [CascadingParameter]
+    Task<AuthenticationState> AuthenticationStateTask { get; set; } = default!;
     private List<User> Users = new();
     private List<Event> Events = new();
     private List<TimeEntry> Entries = new();
@@ -117,20 +120,28 @@ else
     private List<GlobalUserStats> GlobalStats = new();
     private Dictionary<Season, List<Event>> SeasonGroups = new();
     private Dictionary<string, List<EventUserStats>> EventStats = new();
-
-   protected override async Task OnAfterRenderAsync(bool firstRender)
+    private bool _loaded;
+   protected override async Task OnParametersSetAsync()
     {
-        if (firstRender){
-            User? Authed = await Auth.GetCurrentUserAsync();
-            if (Authed is null){
-                Nav.NavigateTo("user/login",true);
-                return;
-            }
-            if(!Authed.ShareStats){
-                Nav.NavigateTo("user/login",true);
-                return ;
-            }
-        } 
+    if (_loaded)
+    return;
+
+    if (AuthenticationStateTask is null){
+        return;
+    }   
+    var auth = await AuthenticationStateTask;
+    if (auth.User.Identity?.IsAuthenticated != true){
+        return;
+    }
+    var userId = auth.User.FindFirst("UserId")?.Value;
+    if (userId is null)
+        return;
+
+    var CurrentUser = await UService.GetUserByStringId(userId);
+    if (CurrentUser is null)
+        return;
+    if(!CurrentUser.ShareStats)Nav.NavigateTo("/user/dashboard");
+    _loaded = true;    
     }
     protected override async Task OnInitializedAsync()
     {

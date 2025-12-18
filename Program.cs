@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore;
 using Worktrack.Data;
 using Worktrack.Services;
 using Worktrack.Components;
-using Worktrack.Components.Provider;
 using Blazored.LocalStorage;
 using Microsoft.AspNetCore.Components.Authorization;
 using System.Security.Claims;
@@ -14,12 +13,6 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorPages();
 builder.Services.AddBlazoredLocalStorage();
-builder.Services.AddSession(options =>
-{
-    options.IdleTimeout = TimeSpan.FromDays(30);
-    options.Cookie.HttpOnly = true;
-    options.Cookie.IsEssential = true;
-});
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddAuthentication("CookieAuth")
     .AddCookie("CookieAuth", options =>
@@ -32,10 +25,8 @@ builder.Services.AddAuthorization();
 builder.Services.AddControllers();
 // Wichtig: AuthenticationStateProvider registrieren
 builder.Services.AddHttpClient();
-builder.Services.AddScoped<AuthStateProvider>();
-builder.Services.AddScoped<AuthenticationStateProvider>(
-    provider => provider.GetRequiredService<AuthStateProvider>()
-);
+builder.Services.AddScoped<AuthenticationStateProvider,
+    ServerAuthenticationStateProvider>();
 
 // ------------------------------------------
 //  1. Razor Components aktivieren (Blazor Server)
@@ -82,8 +73,6 @@ if (!app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();
-app.UseSession();
-
 app.UseAuthentication();  
 app.UseAuthorization();   
 app.UseAntiforgery();
@@ -93,7 +82,7 @@ app.UseAntiforgery();
 app.MapControllers();
 app.MapRazorComponents<App>()
    .AddInteractiveServerRenderMode()
-   .DisableAntiforgery();;
+   .DisableAntiforgery();
 // ------------------------------------------
 //  7. App starten
 // ------------------------------------------

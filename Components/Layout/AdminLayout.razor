@@ -1,13 +1,14 @@
 @inherits LayoutComponentBase
 @inject NavigationManager Nav
 @using Microsoft.AspNetCore.Components.Authorization
-@inject AuthStateProvider Auth
 
 
 @code {
-    protected override async Task OnInitializedAsync()
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthenticationStateTask { get; set; } = default!;
+    protected override async Task OnParametersSetAsync()
 {
-    var authState = await Auth.GetAuthenticationStateAsync();
+    var authState = await AuthenticationStateTask;
     var user = authState.User;
     
     if (!user.Identity?.IsAuthenticated ??false)
