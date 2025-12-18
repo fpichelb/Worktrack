@@ -134,8 +134,12 @@ else
     protected override async Task OnInitializedAsync()
     {
         string? userId = Auth.GetCurrentStringId();
-        if (userId == null) return;
-        if(CurrentUser is null)CurrentUser = await UService.GetUserByStringId(userId);
+        if (userId == null){Console.WriteLine("Auth noch nicht da"); return;}
+        Console.WriteLine($"User Id ist: {userId}");
+        if(CurrentUser is null){var CUser = await UService.GetUserByStringId(userId);
+            if(CUser is null)return;
+            CurrentUser = CUser;
+        }
     }
 
     private async Task saveStats(ChangeEventArgs e)
