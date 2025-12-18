@@ -61,16 +61,24 @@ public class AuthStateProvider : AuthenticationStateProvider
         }
         return await UService.GetUserByStringId(userId);
     }
+
+    public string? GetCurrentStringId()
+    {
+        if (HttpContextAccessor.HttpContext is null) return null;
+        var user = HttpContextAccessor.HttpContext.User;
+        return user.FindFirst("UserId")?.Value;
+    }
     public override async Task<AuthenticationState> GetAuthenticationStateAsync()
     {
         var httpContext = HttpContextAccessor.HttpContext;
         if (httpContext is null) return new AuthenticationState(_anonymous);
         var authenticateResult = await httpContext.AuthenticateAsync("CookieAuth");
-        if (!authenticateResult.Succeeded) {
+        if (!authenticateResult.Succeeded)
+        {
             Console.WriteLine("Failed to authenticate");
             return new AuthenticationState(_anonymous);
         }
-    
+
         var user = authenticateResult.Principal;
         return new AuthenticationState(user);
     }

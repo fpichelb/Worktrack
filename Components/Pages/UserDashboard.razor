@@ -1,10 +1,11 @@
 @page "/user/dashboard"
-
+@attribute [Authorize]
 @using Microsoft.VisualBasic
 
 @inject NavigationManager Nav
 @inject AppDbContext Db
 @inject AuthStateProvider Auth
+@inject UserService UService
 @rendermode InteractiveServer
 
 <h2>User Dashboard</h2>
@@ -121,6 +122,8 @@ else
 }
 
 @code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
     private User? CurrentUser;
     private List<TimeEntry> UserEntries = new();
     private List<EventStatsModel> MyEventStats = new();
@@ -128,32 +131,12 @@ else
     private double TotalHours = 0;
     private int EventsVisited = 0;
 
-    private bool _load;
-
-protected override async Task OnAfterRenderAsync(bool firstRender)
-{
-     if (firstRender)
+    protected override async Task OnInitializedAsync()
     {
-        _load = true;
-
-        // 1 Sekunde warten (asynchron, blockiert nichts)
-        await Task.Delay(1000);
-
-        // danach neu rendern / weiterarbeiten
-        await InvokeAsync(StateHasChanged);
-        return;
+        string? userId = Auth.GetCurrentStringId();
+        if (userId == null) return;
+        if(CurrentUser is null)CurrentUser = await UService.GetUserByStringId(userId);
     }
-    if (!(CurrentUser is null))
-        return;
-    if(_load){
-    var authed = await Auth.GetCurrentUserAsync();
-    if (authed == null)
-        return; // WARTEN, nicht redirecten
-    CurrentUser = authed;
-    await LoadStats();
-    await InvokeAsync(StateHasChanged);
-    }
-}
 
     private async Task saveStats(ChangeEventArgs e)
     {
