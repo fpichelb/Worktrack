@@ -30,6 +30,7 @@
                     <th>Task</th>
                     <th>Check-In</th>
                     <th>Check-Out</th>
+                    <th>Dauer</th>
                     <th>Nutzer zuordnen</th>
                 </tr>
             </thead>
@@ -42,6 +43,7 @@
                         <td>@(string.IsNullOrEmpty(e.Task) ? "-" : e.Task)</td>
                         <td>@e.CheckIn?.ToLocalTime()</td>
                         <td>@(e.CheckOut.HasValue? e.CheckOut.Value.ToLocalTime().ToString() : "-")</td>
+                        <td>@e.DurationHours</td>
                         <td>
                             <select @key="e.Id" @onchange="(args) => AssignUser(e, args.Value?.ToString())">
                                 <option value="">-- User wählen --</option>
