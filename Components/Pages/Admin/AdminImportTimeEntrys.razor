@@ -262,7 +262,7 @@
             };
 
             // --- DUPLICATE CHECK ---
-            if (TEService.IsDuplicate(entry))
+            if (await TEService.IsDuplicate(entry))
             {
                 DuplicateCount++;
                 continue; // nicht speichern

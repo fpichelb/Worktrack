@@ -6,16 +6,17 @@ namespace Worktrack.Services;
 
 public class UserStatsService
 {
-    private readonly AppDbContext Db;
+    private readonly IDbContextFactory<AppDbContext> _factory;
 
-    public UserStatsService(AppDbContext db)
+    public UserStatsService(IDbContextFactory<AppDbContext> factory)
     {
-        Db = db;
+        _factory = factory;
     }
 
     // Gibt vollst�ndige Leaderboard-Daten zur�ck
     public async Task<List<UserStatsViewModel>> GetAllUserStatsAsync(bool includeAdmins = false)
     {
+        await using var Db = await _factory.CreateDbContextAsync();
         var usersQuery = Db.Users.AsQueryable();
 
         if (!includeAdmins)

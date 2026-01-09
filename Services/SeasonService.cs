@@ -13,11 +13,11 @@ namespace Worktrack.Services;
     }
 public class SeasonService
 {
-    private readonly AppDbContext DB;
+    private readonly IDbContextFactory<AppDbContext> _factory;
 
-    public SeasonService(AppDbContext db)
+    public SeasonService(IDbContextFactory<AppDbContext> factory)
     {
-        DB = db;
+        _factory = factory;
     }
 
 
@@ -27,35 +27,40 @@ public class SeasonService
 
     public async Task<List<Season>> GetAllAsync()
     {
-        return await DB.Seasons.OrderBy(s => s.Name).ToListAsync();
+        await using var Db = await _factory.CreateDbContextAsync();
+        return await Db.Seasons.OrderBy(s => s.Name).ToListAsync();
     }
 
     public async Task<Season?> GetByIdAsync(int id)
     {
-        return await DB.Seasons.FindAsync(id);
+        await using var Db = await _factory.CreateDbContextAsync();
+        return await Db.Seasons.FindAsync(id);
     }
 
     public async Task<Season> CreateAsync(Season season)
     {
-        DB.Seasons.Add(season);
-        await DB.SaveChangesAsync();
+        await using var Db = await _factory.CreateDbContextAsync();
+        Db.Seasons.Add(season);
+        await Db.SaveChangesAsync();
         return season;
     }
 
     public async Task<bool> DeleteAsync(int id)
     {
-        var s = await DB.Seasons.FindAsync(id);
+        await using var Db = await _factory.CreateDbContextAsync();
+        var s = await Db.Seasons.FindAsync(id);
         if (s == null) return false;
 
-        DB.Seasons.Remove(s);
-        await DB.SaveChangesAsync();
+        Db.Seasons.Remove(s);
+        await Db.SaveChangesAsync();
         return true;
     }
 
     public async Task<Season> UpdateAsync(Season season)
     {
-        DB.Seasons.Update(season);
-        await DB.SaveChangesAsync();
+        await using var Db = await _factory.CreateDbContextAsync();
+        Db.Seasons.Update(season);
+        await Db.SaveChangesAsync();
         return season;
     }
 
@@ -99,8 +104,9 @@ public class SeasonService
 
     public async Task<Dictionary<Season, List<Event>>> BuildSeasonGroupsAsync()
     {
-        var seasons = await DB.Seasons.ToListAsync();
-        var events = await DB.Events.ToListAsync();
+        await using var Db = await _factory.CreateDbContextAsync();
+        var seasons = await Db.Seasons.ToListAsync();
+        var events = await Db.Events.ToListAsync();
 
         var result = new Dictionary<Season, List<Event>>();
 
@@ -156,7 +162,7 @@ public class SeasonService
         var eventIds = events.Select(e => e.Id).ToList();
 
         var groupEntries = entries
-            .Where(e => e.EventId != null && eventIds.Contains(e.EventId))
+            .Where(e =>  eventIds.Contains(e.EventId))
             .ToList();
 
         return groupEntries

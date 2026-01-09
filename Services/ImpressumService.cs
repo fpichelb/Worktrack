@@ -3,21 +3,23 @@ using Worktrack.Data;
 namespace Worktrack.Services;
 public class ImpressumService
 {
-    private readonly AppDbContext Db;
+    private readonly IDbContextFactory<AppDbContext> _factory;
 
-    public ImpressumService(AppDbContext db)
+    public ImpressumService(IDbContextFactory<AppDbContext> factory)
     {
-        Db = db;
+        _factory = factory;
     }
 
     public async Task<Impressum> GetAsync()
     {
+        await using var Db = await _factory.CreateDbContextAsync();
         var data = await Db.ImpressumData.FirstOrDefaultAsync();
         return data ?? new Impressum();
     }
 
     public async Task SaveAsync(Impressum imp)
     {
+        await using var Db = await _factory.CreateDbContextAsync();
         var existing = await Db.ImpressumData.FirstOrDefaultAsync();
         if (existing == null)
         {

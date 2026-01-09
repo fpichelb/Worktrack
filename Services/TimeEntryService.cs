@@ -6,11 +6,11 @@ namespace Worktrack.Services;
 
 public class TimeEntryService
 {
-    private readonly AppDbContext Db;
+    private readonly IDbContextFactory<AppDbContext> _factory;
 
-    public TimeEntryService(AppDbContext db)
+    public TimeEntryService(IDbContextFactory<AppDbContext> factory)
     {
-        Db = db;
+        _factory = factory;
     }
 
     // --------------------------------------------------------------------
@@ -18,6 +18,7 @@ public class TimeEntryService
     // --------------------------------------------------------------------
     public async Task<TimeEntry> CheckInAsync(int eventId, string name, string? task)
     {
+        await using var Db = await _factory.CreateDbContextAsync();
         var entry = new TimeEntry
         {
             EventId = eventId,
@@ -38,6 +39,7 @@ public class TimeEntryService
     // --------------------------------------------------------------------
     public async Task<TimeEntry?> CheckOutAsync(int eventId, string name)
     {
+        await using var Db = await _factory.CreateDbContextAsync();
         var entry = await Db.TimeEntry
             .Where(e => e.EventId == eventId &&
                         e.NameEntered == name &&
@@ -86,6 +88,7 @@ public class TimeEntryService
     // --------------------------------------------------------------------
     public async Task<List<TimeEntry>> GetAllEntriesAsync()
     {
+        await using var Db = await _factory.CreateDbContextAsync();
         return await Db.TimeEntry
             .Include(e => e.Event)
             .Include(e => e.UserName)
@@ -98,6 +101,7 @@ public class TimeEntryService
     // --------------------------------------------------------------------
     public async Task<List<TimeEntry>> GetPendingAssignmentsAsync()
     {
+        await using var Db = await _factory.CreateDbContextAsync();
         return await Db.TimeEntry
             .Where(e => e.Status == "pending_assignment")
             .OrderByDescending(e => e.CheckIn)
@@ -109,6 +113,7 @@ public class TimeEntryService
     // --------------------------------------------------------------------
     public async Task<bool> AssignUserAsync(int entryId, int userId)
     {
+        await using var Db = await _factory.CreateDbContextAsync();
         var entry = await Db.TimeEntry.FindAsync(entryId);
         if (entry == null)
             return false;
@@ -128,6 +133,7 @@ public class TimeEntryService
     }
     public async Task<String> UndoLastImport()
 {
+    await using var Db = await _factory.CreateDbContextAsync();
     var batch = await Db.Imports
         .OrderByDescending(b => b.Id)
         .FirstOrDefaultAsync();
@@ -153,32 +159,45 @@ public class TimeEntryService
     // --------------------------------------------------------------------
     public async Task<List<TimeEntry>> GetEntriesForUserAsync(int userId)
     {
+        await using var Db = await _factory.CreateDbContextAsync();
         return await Db.TimeEntry
             .Where(e => e.UserId == userId)
             .OrderByDescending(e => e.CheckIn)
             .ToListAsync();
     }
+    public async Task<List<TimeEntry>> GetActiveEntriesForUserAsync(int userId,CancellationToken ct = default)
+    {
+        await using var Db = await _factory.CreateDbContextAsync();
+        return await Db.TimeEntry
+            .Where(e => e.UserId == userId && e.CheckOut != null && e.IsArchived == false)
+            .Include(e => e.Event)
+            .ToListAsync(ct);
+    }
 
     public async Task<List<TimeEntry>> GetEntriesForEventAsync(int EventId)
     {
-        return  await Db.TimeEntry
+        await using var Db = await _factory.CreateDbContextAsync();
+        return await Db.TimeEntry
         .Where(t => t.EventId == EventId)
         .OrderByDescending(t => t.CheckIn)
         .ToListAsync();
     }
-    public bool IsDuplicate(TimeEntry entry)
+    public async Task<bool> IsDuplicate(TimeEntry entry)
     {
-        return Db.TimeEntry.Any(e =>
+        await using var Db = await _factory.CreateDbContextAsync();
+        bool ret = Db.TimeEntry.Any(e =>
             e.EventId == entry.EventId &&
             e.NameEntered.ToLower() == entry.NameEntered.ToLower() &&
             e.CheckIn == entry.CheckIn &&
             Math.Abs((e.DurationHours ?? 0) - (entry.DurationHours ?? 0)) < 0.001
             );
+        return ret;
     }
 
 
     public async Task<List<TimeEntry>> GetAllNotArchivedEntriesAsync()
     {
+        await using var Db = await _factory.CreateDbContextAsync();
         return await Db.TimeEntry
         .Where(e => e.CheckIn != null && e.CheckOut != null && !e.IsArchived)
         .ToListAsync();
@@ -188,6 +207,7 @@ public class TimeEntryService
     // --------------------------------------------------------------------
     public async Task<double> ArchiveUserHoursAsync(User user)
     {
+        await using var Db = await _factory.CreateDbContextAsync();
         var entries = await Db.TimeEntry
             .Where(e => e.UserId == user.Id && e.IsArchived == false)
             .ToListAsync();
@@ -204,6 +224,7 @@ public class TimeEntryService
     }
     public async Task<ArchiveResult> ArchiveAllUsersAsync()
     {
+        await using var Db = await _factory.CreateDbContextAsync();
         var users = await Db.Users.ToListAsync();
         var entries = await Db.TimeEntry
         .Where(e => e.CheckOut != null && !e.IsArchived)
@@ -249,6 +270,7 @@ public class TimeEntryService
 
     public async Task<int> AutoCheckoutStaleEntriesAsync()
     {
+        await using var Db = await _factory.CreateDbContextAsync();
         var now = DateTime.UtcNow;
 
         // Hole alle offenen Eintr�ge

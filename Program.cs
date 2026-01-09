@@ -41,7 +41,7 @@ builder.Services.AddRazorComponents()
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? "server=localhost;database=worktrack;user=worktrackUser;password=Passwort123;";
 
-builder.Services.AddDbContext<AppDbContext>(options =>
+builder.Services.AddDbContextFactory<AppDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
 // ------------------------------------------
 //  3. Eigene Services registrieren
