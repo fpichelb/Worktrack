@@ -1,121 +1,74 @@
 @inherits LayoutComponentBase
+@layout MainLayout
 @inject NavigationManager Nav
 @using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
 
+<h2>Admin Dashboard</h2>
 
-@code {
-    [CascadingParameter]
-    private Task<AuthenticationState> AuthenticationStateTask { get; set; } = default!;
-    protected override async Task OnParametersSetAsync()
-{
-    var authState = await AuthenticationStateTask;
-    var user = authState.User;
-    
-    if (!user.Identity?.IsAuthenticated ??false)
-    {
-        Nav.NavigateTo("/user/login", true);
-        return;
-    }
+<div class="card">
+    <h3>Verwaltung</h3>
+    <p>Wähle einen Bereich:</p>
 
-    if (!user.IsInRole("admin"))
-    {
-        Nav.NavigateTo("/user/dashboard", true);
-    }
-}
-}
-<ToastHost />
-<div class="layout">
-    <header>
-        <a href="/">
-            <img src="/images/clubwork.png" alt="Clubwork logo" width="70" height="70" style="display:block;" />
-        </a>
+    <div class="container mt-3">
 
-        <nav>
-            <a href="/user/login">User Login</a>
-            <a href="/user/dashboard">Dashboard</a>
-            <a href="/admin/dashboard">Admin</a>
-        </nav>
+        <!-- Navigation Tabs -->
+        <ul class="nav nav-tabs mb-4">
 
-    </header>
+            <li class="nav-item">
+                <a class="nav-link @(Active("users"))" href="/admin/users">
+                    Benutzer
+                </a>
+            </li>
 
-    <main class="container">
+            <li class="nav-item">
+                <a class="nav-link @(Active("events"))" href="/admin/events">
+                    Events
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link @(Active("Seasons"))" href="/admin/seasons">
+                    Seasons
+                </a>
+            </li>
 
-        <h2>Admin Dashboard</h2>
+            <li class="nav-item">
+                <a class="nav-link @(Active("pending"))" href="/admin/pending">
+                    Offene Einträge
+                </a>
+            </li>
 
-        <div class="card">
-            <h3>Verwaltung</h3>
-            <p>Wähle einen Bereich:</p>
+            <li class="nav-item">
+                <a class="nav-link @(Active("archive"))" href="/admin/archive">
+                    Stunden archivieren
+                </a>
+            </li>
 
-            <div class="container mt-3">
+            <li class="nav-item">
+                <a class="nav-link @(Active("import-users"))" href="/admin/import/users">
+                    User Import
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link @(Active("import-timeEntrys"))" href="/admin/import/timeentries">
+                    Time Entry Import
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link @(Active("public"))" href="/admin/public">
+                    Öffentlichkeit
+                </a>
+            </li>
 
-                <!-- Navigation Tabs -->
-                <ul class="nav nav-tabs mb-4">
+        </ul>
+        <div style="position:fixed;top:0;right:0;z-index:9999;">
 
-                    <li class="nav-item">
-                        <a class="nav-link @(Active("users"))" href="/admin/users">
-                            Benutzer
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link @(Active("events"))" href="/admin/events">
-                            Events
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link @(Active("Seasons"))" href="/admin/seasons">
-                            Seasons
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link @(Active("pending"))" href="/admin/pending">
-                            Offene Einträge
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link @(Active("archive"))" href="/admin/archive">
-                            Stunden archivieren
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link @(Active("import-users"))" href="/admin/import/users">
-                            User Import
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link @(Active("import-timeEntrys"))" href="/admin/import/timeentries">
-                            Time Entry Import
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link @(Active("public"))" href="/admin/public">
-                            Öffentlichkeit
-                        </a>
-                    </li>
-
-                </ul>
-                <div style="position:fixed;top:0;right:0;z-index:9999;">
-                
-                </div>
-                <!-- Admin Page Content -->
-                @Body
-            </div>
         </div>
-
-    </main>
-    
-
-
-<footer>
-        © @(DateTime.Now.Year) Worktrack – All rights reserved.
-        <a href="/impressum">Impressum</a> · 
-        <a href="/datenschutz">Datenschutz</a>
-</footer>
-
+        <!-- Admin Page Content -->
+        @Body
+    </div>
 </div>
+
 @code {
     string Active(string page)
     {
