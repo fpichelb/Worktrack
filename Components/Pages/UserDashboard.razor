@@ -1,10 +1,7 @@
 @page "/user/dashboard"
 @attribute [Authorize]
 @using Microsoft.VisualBasic
-
 @inject NavigationManager Nav
-@inject AppDbContext Db
-@inject UserService UService
 
 <h2>User Dashboard</h2>
 
@@ -20,7 +17,7 @@ else
 
         <!-- HEADER -->
         <div class="card">
-            <h2>Hallo, @CurrentUser.Name!</h2>
+            <h2>Hallo, @CurrentUser?.Name!</h2>
             <p>Hier findest du alle deine Arbeitsstunden und Teilnahmen.</p>
         </div>
 
@@ -31,7 +28,7 @@ else
                 <table class="info-table">
                     <tr>
                         <td><strong>Bonusstunden:</strong></td>
-                        <td>@CurrentUser.BonusHours.ToString("0") h</td>
+                        <td>@CurrentUser?.BonusHours.ToString("0") h</td>
                     </tr>
                     <tr>
                         <td><strong>Gesamtstunden:</strong></td>
@@ -54,11 +51,11 @@ else
                 Teamvergleich teilnehmen</label>
             <label style="display:flex; align-items:center; gap:0.5rem;">
 
-                <input type="checkbox" id="sharestats" checked="@CurrentUser.ShareStats" @onchange="(e => saveStats(e))" />
+                <input type="checkbox" id="sharestats" checked="@CurrentUser?.ShareStats" @onchange="(e => saveStats(e))" />
             </label>
 
             <div style="margin-top:1rem;justify-content: center;display:flex;">
-                @if (CurrentUser.ShareStats == true)
+                @if (CurrentUser?.ShareStats == true)
                 {
                     <a class="btn btn-primary" href="/teamstats">
                         ➜ Zum Teamvergleich
@@ -135,10 +132,11 @@ else
     private bool _loaded;
     private double TotalHours = 0;
     private int EventsVisited = 0;
+    
 
     protected override async Task OnParametersSetAsync()
     {
-    if (CurrentUser is not null)
+    if (_loaded)
     return;
 
     if (AuthenticationStateTask is null){
@@ -164,18 +162,15 @@ else
     {
         if (CurrentUser is null) return;
         CurrentUser.ShareStats = bool.TryParse(e.Value?.ToString(), out var v) && v;
-        Db.Users.Update(CurrentUser);
-        await Db.SaveChangesAsync();
+        await UService.UpdateUser(CurrentUser);
         StateHasChanged();
 
     }
 
     private async Task LoadStats()
     {
-        UserEntries = await Db.TimeEntry
-        .Where(e => e.UserId == CurrentUser!.Id && e.CheckOut != null && e.IsArchived == false)
-        .Include(e => e.Event)
-        .ToListAsync();
+        if(CurrentUser is null)return;
+        UserEntries = await TEService.GetActiveEntriesForUserAsync(CurrentUser.Id);
 
         TotalHours = UserEntries.Sum(e =>
         e.DurationHours ?? 0);
