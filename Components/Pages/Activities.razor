@@ -97,8 +97,12 @@ else
                                 @if (_selected.LastUnregistrationAt is not null)
                                 {
                                     <div class="small text-muted mt-1">
+                                        @_selected.Datum.ToShortDateString()
+                                        <br>
                                         Abmeldungen möglich bis:
-                                        @_selected.LastUnregistrationAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+                                        @_selected.LastUnregistrationAt.Value.ToLocalTime().ToString("dd.MM.yy")
+                                        
+
                                     </div>
                                 }
                             </div>
