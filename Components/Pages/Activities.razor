@@ -28,7 +28,7 @@ else
             <div class="card">
                 <div class="card-header d-flex align-items-center justify-content-between">
                     <span>Übersicht</span>
-                    <button class="btn btn-sm btn-outline-secondary" @onclick="Reload">
+                    <button class="btn btn-primary" style ="max-width:115px;" @onclick="Reload">
                         Neu laden
                     </button>
                 </div>
@@ -47,7 +47,7 @@ else
                                 <div class="text-end small">
                                     @if (a.MaxTeilnehmer > 0)
                                     {
-                                        <div>@a.ActiveCount / @a.MaxTeilnehmer</div>
+                                        <div>@a.ActiveCount/@a.MaxTeilnehmer</div>
                                     }
                                     else
                                     {
@@ -157,7 +157,7 @@ else
                         }
                         <AuthorizeView Roles="admin,actManager">
 
-                            <label class="form-label">User suchen</label>
+                            <label class="form-label">User suchen (Adminansicht)</label>
                             <input class="form-control" placeholder="Name eingeben…" value="@_userQuery"
                                 @oninput="OnUserQueryInput" />
 
@@ -231,6 +231,7 @@ else
                             <div class="col-md-6">
                                 <input type="date" class="form-control" @bind="@_new.Datum" />
                             </div>
+                            <label>Deadline zum Austragen</label>
                             <div class="col-md-6">
                                 <input type="date" class="form-control" @bind="@_new.UnregisteredAt" />
                             </div>
