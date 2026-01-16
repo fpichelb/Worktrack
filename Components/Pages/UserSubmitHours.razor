@@ -8,7 +8,7 @@
 @rendermode InteractiveServer
 
 <h2 class="title">Arbeitsstunden einreichen</h2>
-<p class="subtitle">Trage hier deine geleisteten Stunden ein. Wähle dazu das passende Event aus.</p>
+<p class="subtitle">Hallo @CurrentUser?.Name <br> Trage hier deine geleisteten Stunden ein. Wähle dazu das passende Event aus.</p>
 
 <div class="card">
 
@@ -52,21 +52,33 @@
     private Task<AuthenticationState> AuthenticationStateTask { get; set; } = default!;
     private List<UserHourEntryInput> Rows = new();
     private List<Event> Events = new();
+    private User? CurrentUser;
+    private bool _loaded;
+    private string UserLoginUrl="/user/login";
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnParametersSetAsync()
     {
-        if (CurrentUser is null)
-        {
-            var AuthState = await AuthenticationStateTask;
-            var userId = AuthState.User.FindFirst("UserId")?.Value;
-            if (userId is null) return;
-            var Authed = await UService.GetUserByStringId(userId);
-            if (Authed is null)
-            {
-                return;
-            }
-            CurrentUser = Authed;
+    if (_loaded)
+    return;
+
+    if (AuthenticationStateTask is null){
+        return;
+    }   
+    var auth = await AuthenticationStateTask;
+    if (auth.User.Identity?.IsAuthenticated != true){
+        Nav.NavigateTo(UserLoginUrl);
+        return;
+    }
+    var userId = auth.User.FindFirst("UserId")?.Value;
+    if (userId is null){
+        Nav.NavigateTo(UserLoginUrl);
+        return;
         }
+
+    CurrentUser = await UService.GetUserByStringId(userId);
+    if (CurrentUser is null)
+        return;
+    _loaded = true; 
         Events = await Db.Events
         .OrderBy(e => e.Name)
         .ToListAsync();
@@ -95,8 +107,8 @@
         {
             var entry = new TimeEntry
             {
-                UserName = null,
-                NameEntered = CurrentUser.Name,
+                UserName = "",
+                NameEntered = CurrentUser?.Name??"",
                 Status = "pending_assignment",
                 EventId = r.EventId ?? 1,
                 DurationHours = r.Hours,
@@ -115,6 +127,4 @@
         Rows.Clear();
         AddRow();
     }
-
-    private User CurrentUser = new User();
 }

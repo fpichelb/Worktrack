@@ -47,9 +47,9 @@ else
             <h3>Teamvergleich</h3>
 
             <p>Wenn du zustimmst, erscheinst du im Teamranking und kannst deine Leistungen mit anderen vergleichen.</p>
-            <label for="sharestats" style="display:flex;  justify-content: center; margin-right:1rem;">Ich möchte am
+            <label for="sharestats" class="d-flex align-items-center"style="justify-content: center; ">Ich möchte am
                 Teamvergleich teilnehmen</label>
-            <label style="display:flex; align-items:center; gap:0.5rem;">
+            <label class="d-flex align-items-center gap-1" >
 
                 <input type="checkbox" id="sharestats" checked="@CurrentUser?.ShareStats" @onchange="(e => saveStats(e))" />
             </label>
@@ -99,6 +99,7 @@ else
                                     <td>@ev.EventName</td>
                                     <td>@ev.Location</td>
                                     <td>@ev.Date.ToShortDateString()</td>
+                                    <td>@ev.Desc</td>
                                     <td>@ev.Hours.ToString("0.0")</td>
                                 </tr>
                             }
@@ -188,15 +189,14 @@ else
         .Count();
 
         MyEventStats = UserEntries
-        .GroupBy(e => e.EventId)
         .Select(g => new EventStatsModel
         {
-            EventId = g.Key,
-            EventName = g.First().Event!.Name,
-            Location = g.First().Event!.Location,
-            Date = g.First().CheckIn ?? DateTime.MinValue,
-            Hours = g.Sum(e =>
-    (e.DurationHours ?? 0))
+            EventId = g.Id,
+            EventName = g.Event!.Name,
+            Location = g.Event!.Location,
+            Date = g.CheckIn ?? DateTime.MinValue,
+            Hours = g.DurationHours ?? 0,
+            Desc = g.Task??""
         })
         .OrderByDescending(x => x.Date)
         .ToList();
@@ -214,6 +214,7 @@ else
         public string EventName { get; set; } = "";
         public string Location { get; set; } = "";
         public DateTime Date { get; set; }
+        public String Desc { get; set; }="";
         public double Hours { get; set; }
     }
 }
