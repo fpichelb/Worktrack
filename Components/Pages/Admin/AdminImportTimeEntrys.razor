@@ -10,21 +10,21 @@
 <h2>TimeEntry Import</h2>
     <div class="card">
     <p>@lastImport</p>
-    @if (!Confirm)
+    @if (Confirm)
         {
-    <button class="btn btn-danger" @onclick="() => Confirm = true">
-    Letzten Import rückgängig machen
-    </button>
-    }else
-        {
-            <div>
+            <div class="position-absolute z-100 bg-light border rounded shadow p-4">
                 <strong>Bist du sicher?</strong><br />
                 <button class="btn btn-success" @onclick="UndoLastImport">Ja, rückgängig machen</button>
                 <button class="btn btn-secondary" @onclick="() => Confirm = false">Abbrechen</button>
             </div>
         }
+    <button class="btn btn-danger" @onclick="() => Confirm = true">
+    Letzten Import rückgängig machen
+    </button>
+       
 </div>
 <div class="card">
+ 
     <h3>1. Importmodus wählen</h3>
     
 

@@ -19,12 +19,30 @@ public class ActivityService
             Ort = vm.Ort,
             Info = vm.Info,
             Datum = vm.Datum,
+            LastUnregistrationAt=vm.UnregisteredAt,
             MaxTeilnehmer = vm.MaxTeilnehmer,
             EmpfohleneTeilnehmer = vm.EmpfohleneTeilnehmer
         };
         db.Activities.Add(a);
         await db.SaveChangesAsync(ct);
         return a.Id;
+    }
+
+    public async Task<(bool ok, string? error)> UpdateActivityAsync(ActivityCreateVm vm, int activityId, CancellationToken ct = default)
+    {
+        await using var db = await _factory.CreateDbContextAsync(ct);
+        var activity = await db.Activities.FirstOrDefaultAsync(a => a.Id == activityId, ct);
+        if (activity is null) return (false, "Aktivität nicht gefunden");
+        activity.Name = vm.Name;
+        activity.Ort = vm.Ort;
+        activity.Datum = vm.Datum;
+        activity.LastUnregistrationAt = vm.UnregisteredAt;
+        activity.Info = vm.Info;
+        activity.MaxTeilnehmer = vm.MaxTeilnehmer;
+        activity.EmpfohleneTeilnehmer = vm.EmpfohleneTeilnehmer;
+
+        await db.SaveChangesAsync(ct);
+        return (true, null);
     }
 
     public async Task<Activity?> GetByIdAsync(int id, CancellationToken ct = default)

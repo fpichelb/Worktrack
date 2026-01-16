@@ -3,7 +3,6 @@
 
 @using Microsoft.EntityFrameworkCore
 @inject EventService EService
-@inject TimeEntryService TEService
 @inject NavigationManager Nav
 @rendermode InteractiveServer
 
@@ -105,8 +104,15 @@
                                 <button class="btn secondary" style="margin:0.5rem;" @onclick="() => ToggleActive(e)">
                                     @(e.IsActive ? "Deaktivieren" : "Aktivieren")
                                 </button>
-                                <button class="btn secondary" style="margin:0.5rem;" @onclick="() => DeleteEvent(e)">Löschen</button>
                                 <button class="btn secondary" style="margin:0.5rem;" @onclick="() => SelectEvent(e)">Details</button>
+                                <button class="btn btn-danger" style="margin:0.5rem;" @onclick="() => _confirmDelete=e.Id">Löschen</button>
+                                @if((_confirmDelete==e.Id)){
+                                <div class="position-absolute z-100 bg-light border rounded shadow p-4">
+                                <button class="btn btn-danger" style="margin:0.5rem;" @onclick="() => DeleteEvent(e)">Ja, Löschen</button>
+                                <button class="btn btn-secondary" style="margin:0.5rem;" @onclick="() => _confirmDelete=-1">abbrechen</button>
+                                </div>
+                                }
+                                
                             </td>
                         </tr>
                     }
@@ -183,6 +189,7 @@
     private string? LargeQrBase64 = null;
     private Event? SelectedEvent = null;
     private List<TimeEntry> EventEntries = new();
+    private int _confirmDelete=-1;
 
     protected override async Task OnInitializedAsync()
     {
@@ -205,6 +212,7 @@
     {   
         SelectedEvent=e;
         EventEntries = await TEService.GetEntriesForEventAsync(e.Id);
+        Toasts.ShowInfo("Daten geladen",$"Die Teilnahmen an {e.Name} wurden erfolgreich geladen und unten angezeigt");
         StateHasChanged();
     }
 

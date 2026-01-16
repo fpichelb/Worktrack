@@ -246,6 +246,12 @@ else
                                     Ausgewählte zum Bearbeiten laden
                                 </button>
                             }
+                            @if (_selectedLoaded)
+                            {
+                                <button class="btn btn-outline-secondary" disabled="@_busy" @onclick="Save">
+                                    Änderung speichern
+                                </button>
+                            }
                         </div>
                     </div>
                 </div>
@@ -270,6 +276,8 @@ else
     private int _currentUserId;
     private List<ActivityListItemVm> _activities = new();
     private ActivityDetailVm? _selected;
+    private int _selectedId;
+    private bool _selectedLoaded=false;
     private bool _isRegistered;
     private bool isFull => _selected is not null && _selected.MaxTeilnehmer > 0 && _selected.ActiveCount >=
     _selected.MaxTeilnehmer;
@@ -452,9 +460,9 @@ else
             Toast.ShowWarning("Achtung", "Name und Ort sind Pflicht.");
             return;
         }
-        if (_new.MaxTeilnehmer < 0)
+        if (_new.MaxTeilnehmer < 0&&_new.EmpfohleneTeilnehmer<0)
         {
-            Toast.ShowWarning("Achtung", "Maximale Teilnehmer darf nicht negativ sein.");
+            Toast.ShowWarning("Achtung", "Beide Teilnehmer dürfen nicht negativ sein.");
             return;
         }
 
@@ -468,6 +476,7 @@ else
             _new.Datum = date;
             _new.UnregisteredAt = DateTime.Today;
             _activities = await ActivityService.GetListAsync();
+            _selectedLoaded =false;
             await Select(id);
         }
         catch (Exception ex)
@@ -480,9 +489,47 @@ else
         }
     }
 
+    private async Task Save(){
+         // Minimal-Validierung
+        if (string.IsNullOrWhiteSpace(_new.Name) || string.IsNullOrWhiteSpace(_new.Ort))
+        {
+            Toast.ShowWarning("Achtung", "Name und Ort sind Pflicht.");
+            return;
+        }
+        if (_new.MaxTeilnehmer < 0&&_new.EmpfohleneTeilnehmer<0)
+        {
+            Toast.ShowWarning("Achtung", "Beide Teilnehmer dürfen nicht negativ sein.");
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var date = _new.Datum;
+            var (ok,error) = await ActivityService.UpdateActivityAsync(_new,_selectedId);
+            if (!ok) { Toast.ShowWarning("Fehler beim speichern", error ?? "Nicht möglich.", 10000); return; }
+            Toast.ShowSuccess("Erfolg", "Aktivität gespeichert.");
+            _new = new ActivityCreateVm();
+            _new.Datum = date;
+            _new.UnregisteredAt = DateTime.Today;
+            _selectedLoaded =false;
+            _activities = await ActivityService.GetListAsync();
+            await Select(_selectedId);
+        }
+        catch (Exception ex)
+        {
+            Toast.ShowError("Fehler bei der Erstellung", ex.Message);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
     private void LoadSelectedIntoEditor()
     {
         if (_selected is null) return;
+        _selectedId = _selected.Id;
+        _selectedLoaded=true;
         _new = new ActivityCreateVm
         {
             Name = _selected.Name,
@@ -490,6 +537,7 @@ else
             Info = _selected.Info,
             MaxTeilnehmer = _selected.MaxTeilnehmer,
             Datum = _selected.Datum,
+            UnregisteredAt=_selected.LastUnregistrationAt??DateTime.UtcNow,
             EmpfohleneTeilnehmer = _selected.EmpfohleneTeilnehmer
         };
         Toast.ShowInfo("Daten geladen!", "Daten in den Editor geladen (Erstellen speichert die Eingabe als neue Aktivität).");
