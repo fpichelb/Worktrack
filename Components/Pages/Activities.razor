@@ -1,0 +1,496 @@
+@page "/activities"
+@using Microsoft.AspNetCore.Components.Authorization
+@using Worktrack.ViewModels
+@attribute [Authorize]
+
+@inject ActivityService ActivityService
+@inject ToastService Toast
+@inject NavigationManager Nav
+
+<h3 class="card">Aktivitäten</h3>
+
+@if (_isLoading)
+{
+    <div class="d-flex align-items-center gap-2">
+        <div class="spinner-border" role="status" aria-hidden="true"></div>
+        <span class="text-muted">Lade Daten…</span>
+    </div>
+}
+else if (!string.IsNullOrWhiteSpace(_error))
+{
+    <div class="alert alert-danger">@_error</div>
+}
+else
+{
+    <div class="row g-3">
+        <!-- Liste -->
+        <div class="col-12 col-lg-5">
+            <div class="card">
+                <div class="card-header d-flex align-items-center justify-content-between">
+                    <span>Übersicht</span>
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="Reload">
+                        Neu laden
+                    </button>
+                </div>
+
+                <div class="list-group list-group-flush">
+                    @foreach (var a in _activities)
+                    {
+                        var active = _selected?.Id == a.Id;
+                        <button type="button" class="list-group-item list-group-item-action @(active ? "active" : "")"
+                            @onclick="() => Select(a.Id)">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <div class="fw-semibold">@a.Name</div>
+                                    <div class="small text-muted">@a.Ort</div>
+                                </div>
+                                <div class="text-end small">
+                                    @if (a.MaxTeilnehmer > 0)
+                                    {
+                                        <div>@a.ActiveCount / @a.MaxTeilnehmer</div>
+                                    }
+                                    else
+                                    {
+                                        <div>@a.ActiveCount</div>
+                                    }
+                                    @if (a.EmpfohleneTeilnehmer > 0)
+                                    {
+                                        <div class="text-muted">empf. @a.EmpfohleneTeilnehmer</div>
+                                    }
+                                </div>
+                            </div>
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Details + Aktionen -->
+        <div class="col-12 col-lg-7">
+            @if (_selected is null)
+            {
+                <div class="alert alert-info mb-0">Wähle eine Aktivität aus.</div>
+            }
+            else
+            {
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h4 class="mb-1">@_selected.Name</h4>
+                                <div class="text-muted">@_selected.Ort</div>
+                            </div>
+
+                            <div class="text-end">
+                                @if (_selected.MaxTeilnehmer > 0)
+                                {
+                                    <div class="badge bg-secondary">
+
+                                        @_selected.ActiveCount / @_selected.MaxTeilnehmer
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="badge bg-secondary">@_selected.ActiveCount / ∞</div>
+                                }
+
+                                @if (_selected.LastUnregistrationAt is not null)
+                                {
+                                    <div class="small text-muted mt-1">
+                                        Abmeldungen möglich bis:
+                                        @_selected.LastUnregistrationAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+                                    </div>
+                                }
+                            </div>
+                        </div>
+
+                        <hr />
+
+                        <p class="mb-3">@_selected.Info</p>
+
+                        <div class="d-flex gap-2">
+                            @if (_isRegistered)
+                            {
+                                <button class="btn btn-outline-danger" disabled="@_busy" @onclick="Unregister">
+                                    Abmelden
+                                </button>
+                            }
+                            else
+                            {
+                                <button class="btn btn-primary" disabled="@RegistrationDisabled" @onclick="Register">
+                                    Anmelden
+                                </button>
+                            }
+
+                            @if ((_selected.ActiveCount >= _selected.MaxTeilnehmer &&
+                                                !_isRegistered) && !(_selected.MaxTeilnehmer == 0))
+                            {
+                                <span class="text-muted align-self-center">Maximale Teilnehmerzahl erreicht</span>
+                            }
+                        </div>
+
+                        <hr />
+
+                        <h5 class="mb-2">Angemeldet</h5>
+                        @if (_selected.Participants.Count == 0)
+                        {
+                            <div class="text-muted">Noch niemand angemeldet.</div>
+                        }
+                        else
+                        {
+                            <ul class="list-group">
+                                @foreach (var p in _selected.Participants)
+                                {
+                                    <li class="list-group-item">
+                                     <div class="row align-items-center">
+                                        <div class="col-md-4">@p.DisplayName</div>
+                                        <div class="col-md-3">
+                                        <AuthorizeView Roles="admin,actManager">
+                                        <button class="btn-danger" @onclick="()=>UnregisterAdmin(p.UserId)">-</button>
+                                        </AuthorizeView>
+                                        </div>
+                                        <div class="col-md-5 text-muted small text-end">@p.RegisteredAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</div>
+                                    </div>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                        <AuthorizeView Roles="admin,actManager">
+
+                            <label class="form-label">User suchen</label>
+                            <input class="form-control" placeholder="Name eingeben…" value="@_userQuery"
+                                @oninput="OnUserQueryInput" />
+
+                            <!-- Select -->
+                            <label class="form-label mt-3">Treffer</label>
+                            <select class="form-select" @bind="_selectedUserId" disabled="@(_userHits.Count == 0)">
+                                <option value="">– User auswählen –</option>
+
+                                @foreach (var u in _userHits)
+                                {
+                                    <option value="@u.Id">
+                                        @u.Name
+                                    </option>
+                                }
+                            </select>
+                            <!-- Aktion -->
+                            <div class="mt-3">
+                                <button class="btn btn-primary" disabled="@(_busy || _selectedUserId is null)"
+                                    @onclick="RegisterAdmin">
+                                    Zum Event anmelden
+                                </button>
+                            </div>
+
+                            @if (_searchBusy)
+                            {
+                                <div class="text-muted mt-2">
+                                    <span class="spinner-border spinner-border-sm"></span>
+                                    Suche…
+                                </div>
+                            }
+                            <div class="form-text">
+                                Tippe mindestens 2 Zeichen. Top 10 Treffer erscheinen darunter.
+                            </div>
+
+                        </AuthorizeView>
+                    </div>
+                </div>
+            }
+
+            <!-- Admin-Block: Erstellen/Bearbeiten -->
+            <AuthorizeView Roles="admin,actManager">
+                <div class="card mt-3">
+                    <div class="card-header">Admin</div>
+                    <div class="card-body">
+                        <h5 class="mb-3">Neue Aktivität</h5>
+
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <label class="form-label">Name</label>
+                                <input class="form-control" @bind="_new.Name" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Ort</label>
+                                <input class="form-control" @bind="_new.Ort" />
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Info</label>
+                                <textarea class="form-control" rows="4" @bind="_new.Info"></textarea>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Maximale Teilnehmer</label>
+                                <input class="form-control" type="number" @bind="_new.MaxTeilnehmer" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Empfohlene Teilnehmer</label>
+                                <input class="form-control" type="number" @bind="_new.EmpfohleneTeilnehmer" />
+                            </div>
+
+
+                            <label>Datum</label>
+                            <div class="col-md-6">
+                                <input type="date" class="form-control" @bind="@_new.Datum" />
+                            </div>
+                            <div class="col-md-6">
+                                <input type="date" class="form-control" @bind="@_new.UnregisteredAt" />
+                            </div>
+                            <div class="col-md-6">
+                                <button class="btn btn-success" disabled="@_busy" @onclick="Create">
+                                    Erstellen
+                                </button>
+                            </div>
+                            @if (_selected is not null)
+                            {
+                                <button class="btn btn-outline-secondary" disabled="@_busy" @onclick="LoadSelectedIntoEditor">
+                                    Ausgewählte zum Bearbeiten laden
+                                </button>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </AuthorizeView>
+        </div>
+    </div>
+}
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    private bool _isLoading = true;
+    private bool _busy;
+    private string? _error;
+    private string _userQuery = "";
+    private bool _searchBusy;
+    private int? _selectedUserId;
+    private List<User> _userHits = new();
+
+    private CancellationTokenSource? _searchCts;
+
+    private int _currentUserId;
+    private List<ActivityListItemVm> _activities = new();
+    private ActivityDetailVm? _selected;
+    private bool _isRegistered;
+    private bool isFull => _selected is not null && _selected.MaxTeilnehmer > 0 && _selected.ActiveCount >=
+    _selected.MaxTeilnehmer;
+    private bool RegistrationDisabled => _busy || isFull;
+
+    private ActivityCreateVm _new = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUserId();
+        await Reload();
+        _new.Datum = DateTime.Today;
+        _new.UnregisteredAt = DateTime.Today;
+    }
+
+    private async Task LoadUserId()
+    {
+        if (AuthenticationStateTask is null) return;
+
+        var auth = await AuthenticationStateTask;
+        var userIdStr = auth.User.FindFirst("UserId")?.Value;
+        if (!int.TryParse(userIdStr, out _currentUserId))
+            _currentUserId = 0;
+    }
+    private async Task OnUserQueryInput(ChangeEventArgs e)
+{
+    _userQuery = e.Value?.ToString() ?? "";
+
+    _selectedUserId = null;
+    _userHits.Clear();
+
+    if (_userQuery.Trim().Length < 2)
+        return;
+
+    _searchCts?.Cancel();
+    _searchCts = new CancellationTokenSource();
+    var ct = _searchCts.Token;
+
+    _searchBusy = true;
+
+    try
+    {
+        await Task.Delay(300, ct); // Debounce
+        _userHits = await UService.GetBestUsers(_userQuery.Trim(), 10, ct);
+    }
+    catch (OperationCanceledException) { }
+    catch (Exception ex)
+    {
+        Toast.ShowError("Achtung",ex.Message);
+    }
+    finally
+    {
+        _searchBusy = false;
+        await InvokeAsync(StateHasChanged);
+    }
+}
+
+    private async Task Reload()
+    {
+        _isLoading = true;
+        _error = null;
+        try
+        {
+            _activities = await ActivityService.GetListAsync();
+            _selected = null;
+            _isRegistered = false;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task Select(int id)
+    {
+        _busy = true;
+        try
+        {
+            _selected = await ActivityService.GetDetailAsync(id, _currentUserId);
+            _isRegistered = _selected.IsRegistered;
+        }
+        catch (Exception ex)
+        {
+            Toast.ShowError("Fehler beim Auswählen", ex.Message);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task Register()
+    {
+        if (_selected is null) return;
+
+        _busy = true;
+        try
+        {
+            var (ok, error) = await ActivityService.RegisterAsync(_selected.Id, _currentUserId);
+            if (!ok) { Toast.ShowWarning("Achtung", error ?? "Nicht möglich."); return; }
+
+            Toast.ShowSuccess("Erfolg", "Du bist angemeldet.");
+            await Select(_selected.Id);
+            _activities = await ActivityService.GetListAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+    private async Task RegisterAdmin()
+    {
+        if (_selected is null) return;
+        
+        _busy = true;
+        try
+        {
+            var (ok, error) = await ActivityService.RegisterAsync(_selected.Id, _selectedUserId??0,true);
+            if (!ok) { Toast.ShowWarning("Achtung", error ?? "Nicht möglich."); return; }
+
+            Toast.ShowSuccess("Erfolg", $"Du hast die Person erfolgreich angemeldet.");
+            await Select(_selected.Id);
+            _activities = await ActivityService.GetListAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task Unregister()
+    {
+        if (_selected is null) return;
+
+        _busy = true;
+        try
+        {
+            var (ok, error) = await ActivityService.UnregisterAsync(_selected.Id, _currentUserId);
+            if (!ok) { Toast.ShowWarning("Achtung", error ?? "Nicht möglich.", 10000); return; }
+
+            Toast.ShowInfo("Abmeldung", "Du bist abgemeldet.");
+            await Select(_selected.Id);
+            _activities = await ActivityService.GetListAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+    private async Task UnregisterAdmin(int userId)
+    {
+        if (_selected is null) return;
+
+        _busy = true;
+        try
+        {
+            var (ok, error) = await ActivityService.UnregisterAsync(_selected.Id, userId,true);
+            if (!ok) { Toast.ShowWarning("Achtung", error ?? "Nicht möglich.", 10000); return; }
+
+            Toast.ShowInfo("Abmeldung", "Du hast die Person erfolgreich abgemeldet.");
+            await Select(_selected.Id);
+            _activities = await ActivityService.GetListAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+
+    private async Task Create()
+    {
+        // Minimal-Validierung
+        if (string.IsNullOrWhiteSpace(_new.Name) || string.IsNullOrWhiteSpace(_new.Ort))
+        {
+            Toast.ShowWarning("Achtung", "Name und Ort sind Pflicht.");
+            return;
+        }
+        if (_new.MaxTeilnehmer < 0)
+        {
+            Toast.ShowWarning("Achtung", "Maximale Teilnehmer darf nicht negativ sein.");
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var date = _new.Datum;
+            var id = await ActivityService.CreateAsync(_new);
+            Toast.ShowSuccess("Erfolg", "Aktivität erstellt.");
+            _new = new ActivityCreateVm();
+            _new.Datum = date;
+            _new.UnregisteredAt = DateTime.Today;
+            _activities = await ActivityService.GetListAsync();
+            await Select(id);
+        }
+        catch (Exception ex)
+        {
+            Toast.ShowError("Fehler bei der Erstellung", ex.Message);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void LoadSelectedIntoEditor()
+    {
+        if (_selected is null) return;
+        _new = new ActivityCreateVm
+        {
+            Name = _selected.Name,
+            Ort = _selected.Ort,
+            Info = _selected.Info,
+            MaxTeilnehmer = _selected.MaxTeilnehmer,
+            Datum = _selected.Datum,
+            EmpfohleneTeilnehmer = _selected.EmpfohleneTeilnehmer
+        };
+        Toast.ShowInfo("Daten geladen!", "Daten in den Editor geladen (Erstellen speichert die Eingabe als neue Aktivität).");
+    }
+}

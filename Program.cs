@@ -53,7 +53,8 @@ builder.Services.AddScoped<TimeEntryService>()
                 .AddScoped<ImpressumService>()
                 .AddScoped<PrivacyPolicyService>()
                 .AddScoped<ToastService>()
-                .AddScoped<EventService>();
+                .AddScoped<EventService>()
+                .AddScoped<ActivityService>();
 
 builder.Services.AddHostedService<AutoCheckoutHostedService>();
 // ------------------------------------------

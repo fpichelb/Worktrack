@@ -21,6 +21,8 @@ public class AppDbContext : DbContext
     public DbSet<ImportBatch> Imports { get; set; }
     public DbSet<PrivacyPolicy> PrivacyPolicies { get; set; }
     public DbSet<Impressum> ImpressumData { get; set; }
+    public DbSet<Activity> Activities { get; set; }
+    public DbSet<ActivityRegistration> ActivityRegistrations { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
