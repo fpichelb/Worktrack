@@ -84,18 +84,19 @@
             <table style="margin-top:1rem;">
                 <thead>
                     <tr>
-                        <th>Name</th>
+                        @if (showDetails){
+                        <th>Name<br>Rolle</th>
 
-                        @if (showDetails)
-                        {
-                            <th>E-Mail</th>
+                        
+                        
+                            <th>E-Mail<br /> Secret Code</th>
+                        }else{
+                            <th>Name</th>
+                            <th>Secret Code</th>
                         }
 
-                        <th>Secret Code</th>
-
                         @if (showDetails)
                         {
-                            <th>Rolle</th>
                             <th class="text-right">Archiv-Stunden</th>
                         }
 
@@ -115,10 +116,16 @@
                         var current = GetCurrentHours(u.Id);
                         //var total = u.ArchivedHours + current;
                         <tr>
-                            <td>
+                            <td style="width: 180px;">
                                 @if (showDetails)
                                 {
-                                    <InputText @bind-Value="u.Name" @bind-Value:after="() => Save(u)" />
+                                    <InputText style="width: 180px;" @bind-Value="u.Name" @bind-Value:after="() => Save(u)" />
+                                    <select class="form-select form-select-sm" value="@u.Role"
+                                        @onchange="(e) => ChangeRole(u,e.Value?.ToString())">
+                                        <option value="user">User</option>
+                                        <option value="actManager">ActManager</option>
+                                        <option value="admin">Admin</option>
+                                    </select>
                                 }
                                 else
                                 {
@@ -127,21 +134,15 @@
                             </td>
                             @if (showDetails)
                             {
-                                <td>@u.Email</td>
-                            }
+                                <td>@u.Email<br />
+                                <InputText  style="width: 80px;" @bind-Value="u.SecretCode" @bind-Value:after="() => Save(u)" /></td>
+                            }else{
                             <td>
-                                @if (showDetails)
-                                {
-                                    <InputText @bind-Value="u.SecretCode" @bind-Value:after="() => Save(u)" />
-                                }
-                                else
-                                {
-                                    @u.SecretCode
-                                }
+                                @u.SecretCode
                             </td>
+                            }
                             @if (showDetails)
                             {
-                                <td>@(u.Role == "admin" ? "Admin" : "User")</td>
                                 <td class="text-right">@u.ArchivedHours.ToString("0.0")</td>
                             }
                             <td class="text-right">@current.ToString("0.0")</td>
@@ -152,11 +153,6 @@
                             @if (showDetails)
                             {
                                 <td class="text-right">
-                                    @if (u.Role != "admin")
-                                    {
-                                        <button class="btn secondary" style="margin-right:0.5rem;margin-bottom:0.5rem;"
-                                            @onclick="() => MakeAdmin(u)">Admin</button>
-                                    }
                                     <button class="btn secondary" @onclick="() => DeleteUser(u)">Löschen</button>
                                 </td>
                             }
@@ -244,11 +240,11 @@
     }
 
 
-    private async Task MakeAdmin(User u)
-    {
-        u.Role = "admin";
+    private async Task ChangeRole(User u, string? newRole){
+        if (newRole is null) return;
+        u.Role = newRole;
         await Db.SaveChangesAsync();
-        Toasts.ShowInfo("Rolle aktualisiert", $" {u.Name} ist jetzt Admin.");
+        Toasts.ShowInfo("Rolle aktualisiert", $" {u.Name} ist jetzt {newRole}.");
         await LoadUsers();
     }
 

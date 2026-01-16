@@ -76,15 +76,12 @@
         .Where(t => t.Status == "pending_assignment")
         .OrderByDescending(t => t.CheckIn)
         .ToListAsync();
-
-        Users = await Db.Users.ToListAsync();
+        Users = await UService.GetAllAsync();
     }
 
     private List<User> GetSortedUsersForEntry(TimeEntry entry)
     {
-        return Users
-        .OrderByDescending(u => GetMatchScore(entry.NameEntered, u.Name))
-        .ToList();
+        return UService.SortUser(Users,entry.NameEntered,10);
     }
 
     private async Task AssignUser(TimeEntry entry, string? value)
@@ -104,61 +101,4 @@
             Toasts.ShowSuccess("Entry zugewiesen",$"{user.Name} wurden erfolgreich {entry.DurationHours} hinzugefügt.");
         }
     }
-
-    private int Levenshtein(string a, string b)
-    {
-        if (string.IsNullOrEmpty(a)) return b.Length;
-        if (string.IsNullOrEmpty(b)) return a.Length;
-
-        int[,] d = new int[a.Length + 1, b.Length + 1];
-
-        for (int i = 0; i <= a.Length; i++) d[i, 0] = i;
-        for (int j = 0; j <= b.Length; j++) d[0, j] = j;
-
-        for (int i = 1; i <= a.Length; i++)
-        {
-            for (int j = 1; j <= b.Length; j++)
-            {
-                int cost = (a[i - 1] == b[j - 1]) ? 0 : 1;
-
-                d[i, j] = Math.Min(
-                Math.Min(d[i - 1, j] + 1, d[i, j - 1] + 1),
-                d[i - 1, j - 1] + cost
-                );
-            }
-        }
-
-        return d[a.Length, b.Length];
-    }
-
-    private double GetMatchScore(string entered, string fullName)
-    {
-        entered = entered.ToLower();
-        fullName = fullName.ToLower();
-
-        double score = 0;
-
-        // 1. String-Distance
-        var dist = Levenshtein(entered, fullName);
-        score -= dist; // niedrig besser → negativ nutzen
-
-        // 2. Teilstring-Bonus
-        if (fullName.Contains(entered)) score += 10;
-
-        // 3. Token-Vergleich
-        var tokens = fullName.Split(' ');
-        var enteredTokens = entered.Split(' ');
-
-        foreach (var t in enteredTokens)
-        {
-            foreach (var ft in tokens)
-            {
-                if (ft.StartsWith(t)) score += 5;
-                if (ft == t) score += 10;
-            }
-        }
-
-        return score;
-    }
-
 }

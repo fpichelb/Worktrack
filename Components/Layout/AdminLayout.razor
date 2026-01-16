@@ -5,7 +5,8 @@
 @using System.Security.Claims
 
 <h2>Admin Dashboard</h2>
-
+<AuthorizeView Roles="admin">
+        <Authorized>
 <div class="card">
     <h3>Verwaltung</h3>
     <p>Wähle einen Bereich:</p>
@@ -68,6 +69,13 @@
         @Body
     </div>
 </div>
+</Authorized>
+
+<NotAuthorized>
+        <p class="text-muted">Kein Zugriff</p>
+</NotAuthorized>
+
+</AuthorizeView>
 
 @code {
     string Active(string page)
@@ -77,5 +85,4 @@
         ? "active"
         : "";
     }
-
 }

@@ -132,6 +132,7 @@ else
     private bool _loaded;
     private double TotalHours = 0;
     private int EventsVisited = 0;
+    private string UserLoginUrl="/user/login";
     
 
     protected override async Task OnParametersSetAsync()
@@ -144,11 +145,14 @@ else
     }   
     var auth = await AuthenticationStateTask;
     if (auth.User.Identity?.IsAuthenticated != true){
+        Nav.NavigateTo(UserLoginUrl);
         return;
     }
     var userId = auth.User.FindFirst("UserId")?.Value;
-    if (userId is null)
+    if (userId is null){
+        Nav.NavigateTo(UserLoginUrl);
         return;
+        }
 
     CurrentUser = await UService.GetUserByStringId(userId);
     if (CurrentUser is null)
