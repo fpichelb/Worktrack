@@ -10,6 +10,9 @@ public class Activity
     public int EmpfohleneTeilnehmer { get; set; }
 
     public DateTime? LastUnregistrationAt { get; set; }
+    public string FileName { get; set; } = "";
+    public string ContentType { get; set; } = "";   // "image/jpeg", "image/png"...
+    public byte[] Data { get; set; } = Array.Empty<byte>();
 
     public List<ActivityRegistration> Registrations { get; set; } = new();
 }

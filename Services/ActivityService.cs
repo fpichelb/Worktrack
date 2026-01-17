@@ -19,9 +19,12 @@ public class ActivityService
             Ort = vm.Ort,
             Info = vm.Info,
             Datum = vm.Datum,
-            LastUnregistrationAt=vm.UnregisteredAt,
+            LastUnregistrationAt = vm.UnregisteredAt,
             MaxTeilnehmer = vm.MaxTeilnehmer,
-            EmpfohleneTeilnehmer = vm.EmpfohleneTeilnehmer
+            EmpfohleneTeilnehmer = vm.EmpfohleneTeilnehmer,
+            FileName =  vm.FileName,
+            ContentType=   vm.ContentType,
+            Data =   vm.Data
         };
         db.Activities.Add(a);
         await db.SaveChangesAsync(ct);
@@ -40,6 +43,9 @@ public class ActivityService
         activity.Info = vm.Info;
         activity.MaxTeilnehmer = vm.MaxTeilnehmer;
         activity.EmpfohleneTeilnehmer = vm.EmpfohleneTeilnehmer;
+        activity.FileName =  vm.FileName;
+        activity.ContentType=   vm.ContentType;
+        activity.Data =   vm.Data;
 
         await db.SaveChangesAsync(ct);
         return (true, null);
@@ -85,7 +91,7 @@ public class ActivityService
         return (true, null);
     }
 
-    public async Task<(bool ok, string? error)> UnregisterAsync(int activityId, int userId,bool timeOverride=false, CancellationToken ct = default)
+    public async Task<(bool ok, string? error)> UnregisterAsync(int activityId, int userId,bool adminOverride=false, CancellationToken ct = default)
     {
         await using var db = await _factory.CreateDbContextAsync(ct);
 
@@ -93,15 +99,14 @@ public class ActivityService
             .Where(r => r.ActivityId == activityId && r.UserId == userId && r.UnregisteredAt == null)
             .OrderByDescending(r => r.RegisteredAt)
             .FirstOrDefaultAsync(ct);
+        var activity = await db.Activities.FirstAsync(a => a.Id == activityId, ct);
 
         if (reg is null) return (false, "Du bist nicht angemeldet.");
 
-        var now = DateTime.UtcNow;
-        if ((!(DateTime.Compare(reg.UnregisteredAt??now , now) < 0))&&!timeOverride) return (false, "Die Zeit zum Abmelden ist bereits abgelaufen.");
+        var now = DateTime.Today;
+        if ((DateTime.Compare(activity.LastUnregistrationAt ?? DateTime.UtcNow, now) < 0)&&!adminOverride) return (false, "Die Zeit zum Abmelden ist bereits abgelaufen.");
 
         reg.UnregisteredAt = now;
-        var activity = await db.Activities.FirstAsync(a => a.Id == activityId, ct);
-        activity.LastUnregistrationAt = now;
 
         await db.SaveChangesAsync(ct);
         return (true, null);
@@ -120,15 +125,18 @@ public class ActivityService
             RegisteredAt = r.RegisteredAt
             })
             .ToListAsync(ct);
+
         var a = await db.Activities
             .Where(a => a.Id == activityId)
             .FirstOrDefaultAsync(ct);
+
         var IsRegistered = await db.ActivityRegistrations
-    .AnyAsync(r =>
-        r.ActivityId == activityId &&
-        r.UserId == userId &&
-        r.UnregisteredAt == null,
-        ct);
+            .AnyAsync(r =>
+            r.ActivityId == activityId &&
+            r.UserId == userId &&
+            r.UnregisteredAt == null,
+            ct);
+        if (a is null) return new ActivityDetailVm();
         return new ActivityDetailVm
         {
             Id = a.Id,
@@ -138,7 +146,10 @@ public class ActivityService
             Datum = a.Datum,
             MaxTeilnehmer = a.MaxTeilnehmer,
             EmpfohleneTeilnehmer = a.EmpfohleneTeilnehmer,
-            ActiveCount = Participants.Count(),
+            FileName =  a.FileName,
+            ContentType=   a.ContentType,
+            Data =   a.Data,
+            ActiveCount = Participants.Count,
             LastUnregistrationAt = a.LastUnregistrationAt,
             IsRegistered = IsRegistered,
             Participants = Participants

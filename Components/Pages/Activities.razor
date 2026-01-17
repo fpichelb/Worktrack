@@ -1,5 +1,6 @@
 @page "/activities"
 @using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Forms
 @using Worktrack.ViewModels
 @attribute [Authorize]
 
@@ -76,7 +77,14 @@ else
                 <div class="card">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-start">
-                            <div style="max-width: 55%;">
+                            @if(!string.IsNullOrWhiteSpace(_selected.ContentType)){
+                                <button type="button" class="p-0 border-0 bg-transparent " style="max-width:25%"
+                                        @onclick="() => OpenModal()">
+                                    <img src="@ToDataUrl(_selected.ContentType, _selected.Data)" class="img-thumbnail"
+                                        style="width: 140px; height: 100px; object-fit: cover;" />
+                                </button>
+                            }
+                            <div style="max-width: 55%; margin-left:20px;">
                                 <h4 class="mb-1">@_selected.Name</h4>
                                 <div class="text-muted">@_selected.Ort</div>
                             </div>
@@ -99,7 +107,7 @@ else
                                     <div class="small text-muted mt-1">
                                         @_selected.Datum.ToShortDateString()
                                         <br>
-                                        Abmeldungen möglich bis:
+                                        Abmeldung bis:
                                         @_selected.LastUnregistrationAt.Value.ToLocalTime().ToString("dd.MM.yy")
                                         
 
@@ -111,7 +119,7 @@ else
                         <hr />
 
                         <p class="mb-3">@_selected.Info</p>
-
+                        
                         <div class="d-flex gap-2">
                             @if (_isRegistered)
                             {
@@ -207,8 +215,8 @@ else
                     <div class="card-header">Admin</div>
                     <div class="card-body">
                         <h5 class="mb-3">Neue Aktivität</h5>
-
-                        <div class="row g-2">
+                            
+                            <div class="row g-2">
                             <div class="col-md-6">
                                 <label class="form-label">Name</label>
                                 <input class="form-control" @bind="_new.Name" />
@@ -216,6 +224,25 @@ else
                             <div class="col-md-6">
                                 <label class="form-label">Ort</label>
                                 <input class="form-control" @bind="_new.Ort" />
+                            </div>
+                            <div class="col-md-6">
+                                <label>Datum</label>
+                                <input type="date" class="form-control" @bind="@_new.Datum" />
+                                <label>Deadline zum Austragen</label>
+                                <input type="date" class="form-control" @bind="@_new.UnregisteredAt" />
+                            </div>
+                            <div class="col-md-6 text-center">
+                            @if (!string.IsNullOrWhiteSpace(_previewDataUrl))
+                            {
+                                    
+                                    <div class="text-muted small mb-1">Vorschau</div>
+                                    <img src="@_previewDataUrl" class="img-thumbnail" style="max-height: 180px;" />
+                            
+                            }
+                            </div>
+                            <div class="col-12">
+                            <label>Bild (optional)</label>
+                            <InputFile OnChange="OnFileSelected" accept="image/*"  />
                             </div>
                             <div class="col-12">
                                 <label class="form-label">Info</label>
@@ -228,16 +255,6 @@ else
                             <div class="col-md-6">
                                 <label class="form-label">Empfohlene Teilnehmer</label>
                                 <input class="form-control" type="number" @bind="_new.EmpfohleneTeilnehmer" />
-                            </div>
-
-
-                            <label>Datum</label>
-                            <div class="col-md-6">
-                                <input type="date" class="form-control" @bind="@_new.Datum" />
-                            </div>
-                            <label>Deadline zum Austragen</label>
-                            <div class="col-md-6">
-                                <input type="date" class="form-control" @bind="@_new.UnregisteredAt" />
                             </div>
                             <div class="col-md-6">
                                 <button class="btn btn-success" disabled="@_busy" @onclick="Create">
@@ -261,6 +278,23 @@ else
                 </div>
             </AuthorizeView>
         </div>
+        @if (_showModal && _selected is not null)
+            {
+                <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,.5);">
+                    <div class="modal-dialog modal-lg modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">@_selected.FileName</h5>
+                                <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <img src="@ToDataUrl(_selected.ContentType, _selected.Data)"
+                                     class="img-fluid rounded" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
     </div>
 }
 
@@ -286,6 +320,9 @@ else
     private bool isFull => _selected is not null && _selected.MaxTeilnehmer > 0 && _selected.ActiveCount >=
     _selected.MaxTeilnehmer;
     private bool RegistrationDisabled => _busy || isFull;
+    private IBrowserFile? _selectedFile;
+    private string? _previewDataUrl;
+    private bool _showModal;
 
     private ActivityCreateVm _new = new();
 
@@ -454,8 +491,62 @@ else
             _busy = false;
         }
     }
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        _selectedFile = e.File;
 
+        // Limits
+        var allowed = new[] { "image/jpeg", "image/png", "image/webp" };
+        if (!allowed.Contains(_selectedFile.ContentType))
+        {
+            Toast.ShowWarning("Falsche Format","Bitte JPG/PNG/WebP hochladen.");
+            ClearSelection();
+            return;
+        }
 
+        const long maxBytes = 2 * 1024 * 1024; // 2 MB
+        if (_selectedFile.Size > maxBytes)
+        {
+            Toast.ShowWarning("Achtung","Bild ist zu groß (max 2MB).");
+            ClearSelection();
+            return;
+        }
+
+        // Vorschau als DataURL
+        using var stream = _selectedFile.OpenReadStream(maxBytes);
+        using var ms = new MemoryStream();
+        await stream.CopyToAsync(ms);
+        _new.Data = ms.ToArray();
+        _new.FileName = _selectedFile.Name;
+        _new.ContentType = _selectedFile.ContentType;
+
+        _previewDataUrl = ToDataUrl(_new.ContentType, _new.Data);
+    }
+     private void ClearSelection()
+    {
+        _selectedFile = null;
+        _previewDataUrl = null;
+    }
+    private void OpenModal()
+    {
+        _showModal = true;
+    }
+    private void CloseModal()
+    {
+        _showModal = false;
+    }
+    private static string ToDataUrl(string contentType, byte[] data)
+        => $"data:{contentType};base64,{Convert.ToBase64String(data)}";
+        
+    private void ResetNew(){
+        var date = _new.Datum;
+        _new = new ActivityCreateVm();
+        _new.Datum = date;
+        _selectedFile = null;
+        _previewDataUrl = "";
+        _new.UnregisteredAt = DateTime.Today;
+        _selectedLoaded =false;
+    }
     private async Task Create()
     {
         // Minimal-Validierung
@@ -476,11 +567,7 @@ else
             var date = _new.Datum;
             var id = await ActivityService.CreateAsync(_new);
             Toast.ShowSuccess("Erfolg", "Aktivität erstellt.");
-            _new = new ActivityCreateVm();
-            _new.Datum = date;
-            _new.UnregisteredAt = DateTime.Today;
-            _activities = await ActivityService.GetListAsync();
-            _selectedLoaded =false;
+            ResetNew();
             await Select(id);
         }
         catch (Exception ex)
@@ -508,15 +595,11 @@ else
 
         _busy = true;
         try
-        {
-            var date = _new.Datum;
+        {   
             var (ok,error) = await ActivityService.UpdateActivityAsync(_new,_selectedId);
             if (!ok) { Toast.ShowWarning("Fehler beim speichern", error ?? "Nicht möglich.", 10000); return; }
             Toast.ShowSuccess("Erfolg", "Aktivität gespeichert.");
-            _new = new ActivityCreateVm();
-            _new.Datum = date;
-            _new.UnregisteredAt = DateTime.Today;
-            _selectedLoaded =false;
+            ResetNew();
             _activities = await ActivityService.GetListAsync();
             await Select(_selectedId);
         }
@@ -534,6 +617,8 @@ else
         if (_selected is null) return;
         _selectedId = _selected.Id;
         _selectedLoaded=true;
+        _selectedFile = null;
+        _previewDataUrl="";
         _new = new ActivityCreateVm
         {
             Name = _selected.Name,
@@ -544,6 +629,8 @@ else
             UnregisteredAt=_selected.LastUnregistrationAt??DateTime.UtcNow,
             EmpfohleneTeilnehmer = _selected.EmpfohleneTeilnehmer
         };
+        if (!string.IsNullOrWhiteSpace(_selected.ContentType))
+        _previewDataUrl = ToDataUrl(_selected.ContentType, _selected.Data);
         Toast.ShowInfo("Daten geladen!", "Daten in den Editor geladen (Erstellen speichert die Eingabe als neue Aktivität).");
     }
 }
