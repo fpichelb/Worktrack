@@ -144,7 +144,9 @@ else
                                 </button>
                                 <div class="d-flex text-muted small">
                                 <label class="text-muted">Extra Gäste</label>
-                                <InputNumber  @bind-value=_selected.Extra @bind-value:after="()=>UpdateExtra()"/>
+                                <InputNumber min="0"
+                                            step="1" 
+                                            @bind-value=_selected.Extra @bind-value:after="()=>UpdateExtra()"/>
                                 </div>
                             }
                             else
@@ -188,11 +190,31 @@ else
                             </ul>
                         }
                         <AuthorizeView Roles="admin,actManager">
+                        
+                            <div class="row g-2 align-items-end">
+                                <div class="col">
+                                    <label class="form-label small mb-1">
+                                        User suchen <span class="text-muted">(Admin)</span>
+                                    </label>
+                                    <input class="form-control form-control-sm"
+                                           placeholder="Name eingeben…"
+                                           value="@_userQuery"
+                                           @oninput="OnUserQueryInput" />
+                                </div>
 
-                            <label class="form-label">User suchen (Adminansicht)</label>
-                            <input class="form-control" placeholder="Name eingeben…" value="@_userQuery"
-                                @oninput="OnUserQueryInput" />
-
+                                <div class="col-auto">
+                                    <label class="form-label small mb-1 text-muted">
+                                        Extra Gäste
+                                    </label>
+                                    <input type="number"
+                                           class="form-control form-control-sm"
+                                           style="width: 90px;"
+                                           min="0"
+                                           step="1"
+                                           @bind="adminExtra" />
+                                </div>
+                            </div>
+                            
                             <!-- Select -->
                             <label class="form-label mt-3">Treffer</label>
                             <select class="form-select" @bind="_selectedUserId" disabled="@(_userHits.Count == 0)">
@@ -327,6 +349,7 @@ else
     private string _userQuery = "";
     private bool _searchBusy;
     private int? _selectedUserId;
+    private int adminExtra;
     private List<User> _userHits = new();
 
     private CancellationTokenSource? _searchCts;
@@ -485,6 +508,7 @@ else
         {
             var (ok, error) = await ActivityService.RegisterAsync(_selected.Id, _selectedUserId??0,true);
             if (!ok) { Toast.ShowWarning("Achtung", error ?? "Nicht möglich."); return; }
+            await ActivityService.UpdateExtraAsync(adminExtra,_selected.Id,_selectedUserId??0);
 
             Toast.ShowSuccess("Erfolg", $"Du hast die Person erfolgreich angemeldet.");
             await Select(_selected.Id);
