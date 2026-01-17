@@ -10,6 +10,7 @@ public class ActivityListItemVm
     public int MaxTeilnehmer { get; set; }
     public int EmpfohleneTeilnehmer { get; set; }
     public int ActiveCount { get; set; }
+    public bool IsRegistered { get; set; }
 }
     public class ActivityDetailVm
     {

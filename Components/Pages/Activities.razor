@@ -27,15 +27,29 @@ else
         <!-- Liste -->
         <div class="col-12 col-lg-5">
             <div class="card">
-                <div class="card-header d-flex align-items-center justify-content-between">
-                    <span>Übersicht</span>
-                    <button class="btn btn-primary" style ="max-width:115px;" @onclick="Reload">
-                        Neu laden
-                    </button>
+                <div class="card-header d-flex align-items-center justify-content-between py-1 px-3">
+                    <span class="small fw-semibold">Übersicht</span>
+
+                    <div class="d-flex align-items-center gap-4">
+                        <div class="d-flex flex-column">
+                            <label class="form-check form-switch mb-0 small mt-0">
+                                <input class="form-check-input" type="checkbox" @bind="_filterRegistered" />
+                                Angemeldet
+                            </label>
+
+                            <label class="form-check form-switch mb-0 small mt-0">
+                                <input class="form-check-input" type="checkbox" @bind="_filterNext14Days" />
+                                in 14 Tagen
+                            </label>
+                        </div>
+                        <button class="btn btn-primary" style="max-width:115px;" @onclick="Reload">
+                            Neu laden
+                        </button>
+                    </div>
                 </div>
 
                 <div class="list-group list-group-flush">
-                    @foreach (var a in _activities)
+                    @foreach (var a in FilteredActivities)
                     {
                         var active = _selected?.Id == a.Id;
                         <button type="button" class="list-group-item list-group-item-action @(active ? "active" : "")"
@@ -87,7 +101,7 @@ else
                                 </div>
                             }
                             <div style="max-width: 55%;">
-                                <h4 class="mb-1">@_selected.Name Id:@_selected.Id</h4>
+                                <h4 class="mb-1">@_selected.Name</h4>
                                 <div class="text-muted">@_selected.Ort</div>
                             </div>
 
@@ -330,6 +344,27 @@ else
     private IBrowserFile? _selectedFile;
     private string? _previewDataUrl;
     private bool _showModal;
+    private bool _filterRegistered;
+    private bool _filterNext14Days;
+    private IEnumerable<ActivityListItemVm> FilteredActivities
+{
+    get
+    {
+        IEnumerable<ActivityListItemVm> q = _activities;
+
+        if (_filterRegistered)
+            q = q.Where(a => a.IsRegistered);
+
+        if (_filterNext14Days)
+        {
+            var now = DateTime.Now;
+            var until = now.AddDays(14);
+            q = q.Where(a =>  a.Datum <= until);
+        }
+
+        return q.OrderByDescending(a => a.Datum);
+    }
+}
 
     private ActivityCreateVm _new = new();
 
@@ -389,7 +424,7 @@ else
         _error = null;
         try
         {
-            _activities = await ActivityService.GetListAsync();
+            _activities = await ActivityService.GetListAsync(_currentUserId);
             _selected = null;
             _isRegistered = false;
         }
@@ -410,6 +445,7 @@ else
         {
             _selected = await ActivityService.GetDetailAsync(id, _currentUserId);
             _isRegistered = _selected.IsRegistered;
+            oldextra = _selected.Extra;
         }
         catch (Exception ex)
         {
@@ -433,7 +469,7 @@ else
 
             Toast.ShowSuccess("Erfolg", "Du bist angemeldet.");
             await Select(_selected.Id);
-            _activities = await ActivityService.GetListAsync();
+            _activities = await ActivityService.GetListAsync(_currentUserId);
         }
         finally
         {
@@ -452,7 +488,7 @@ else
 
             Toast.ShowSuccess("Erfolg", $"Du hast die Person erfolgreich angemeldet.");
             await Select(_selected.Id);
-            _activities = await ActivityService.GetListAsync();
+            _activities = await ActivityService.GetListAsync(_currentUserId);
         }
         finally
         {
@@ -472,7 +508,7 @@ else
 
             Toast.ShowInfo("Abmeldung", "Du bist abgemeldet.");
             await Select(_selected.Id);
-            _activities = await ActivityService.GetListAsync();
+            _activities = await ActivityService.GetListAsync(_currentUserId);
         }
         finally
         {
@@ -491,7 +527,7 @@ else
 
             Toast.ShowInfo("Abmeldung", "Du hast die Person erfolgreich abgemeldet.");
             await Select(_selected.Id);
-            _activities = await ActivityService.GetListAsync();
+            _activities = await ActivityService.GetListAsync(_currentUserId);
         }
         finally
         {
@@ -506,10 +542,14 @@ else
             var maxUsed =max<_selected.Extra;
             if(maxUsed)_selected.Extra=max;
             var (ok,error) = await ActivityService.UpdateExtraAsync(_selected.Extra,_selected.Id,_currentUserId);
-            if(!ok||maxUsed){Toasts.ShowWarning( "Achtung",error??$"Du hast erfolgreich +{_selected.Extra} angemeldet");return;}
+            if(!ok||maxUsed){
+                Toasts.ShowWarning( "Achtung",error??$"Du hast erfolgreich +{_selected.Extra} angemeldet");
+            }else{
             Toast.ShowSuccess("Anmeldung",$"Du hast erfolgreich +{_selected.Extra} angemeldet");
+            }
             await Select(_selected.Id);
-            _activities = await ActivityService.GetListAsync();
+            _activities = await ActivityService.GetListAsync(_currentUserId);
+            oldextra=_selected.Extra;
         }finally{
             _busy=false;
         }
@@ -623,7 +663,7 @@ else
             if (!ok) { Toast.ShowWarning("Fehler beim speichern", error ?? "Nicht möglich.", 10000); return; }
             Toast.ShowSuccess("Erfolg", "Aktivität gespeichert.");
             ResetNew();
-            _activities = await ActivityService.GetListAsync();
+            _activities = await ActivityService.GetListAsync(_currentUserId);
             await Select(_selectedId);
         }
         catch (Exception ex)

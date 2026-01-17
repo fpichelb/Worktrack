@@ -169,7 +169,7 @@ public class ActivityService
             Participants = Participants
         };
     }
-    public async Task<List<ActivityListItemVm>> GetListAsync(CancellationToken ct = default)
+    public async Task<List<ActivityListItemVm>> GetListAsync(int userId , CancellationToken ct = default)
     {
         await using var db = await _factory.CreateDbContextAsync(ct);
 
@@ -182,7 +182,8 @@ public class ActivityService
                 Datum = a.Datum,
                 MaxTeilnehmer = a.MaxTeilnehmer,
                 EmpfohleneTeilnehmer = a.EmpfohleneTeilnehmer,
-                ActiveCount = a.Registrations.Where(r=>r.UnregisteredAt == null).Sum(r =>1 + r.Extra)
+                ActiveCount = a.Registrations.Where(r => r.UnregisteredAt == null).Sum(r => 1 + r.Extra),
+                IsRegistered = a.Registrations.Any(r=> r.UserId==userId&&r.UnregisteredAt==null)
             })
             .Where(a => a.Datum > DateTime.UtcNow)
             .OrderByDescending(a => a.Datum)
