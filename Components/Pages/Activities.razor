@@ -78,13 +78,15 @@ else
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-start">
                             @if(!string.IsNullOrWhiteSpace(_selected.ContentType)){
-                                <button type="button" class="p-0 border-0 bg-transparent " style="max-width:25%"
+                                <div style="margin-right:20px;max-width:25%">
+                                <button type="button" class="p-0 border-0 bg-transparent "
                                         @onclick="() => OpenModal()">
                                     <img src="@ToDataUrl(_selected.ContentType, _selected.Data)" class="img-thumbnail"
                                         style="width: 140px; height: 100px; object-fit: cover;" />
                                 </button>
+                                </div>
                             }
-                            <div style="max-width: 55%; margin-left:20px;">
+                            <div style="max-width: 55%;">
                                 <h4 class="mb-1">@_selected.Name</h4>
                                 <div class="text-muted">@_selected.Ort</div>
                             </div>
@@ -627,7 +629,10 @@ else
             MaxTeilnehmer = _selected.MaxTeilnehmer,
             Datum = _selected.Datum,
             UnregisteredAt=_selected.LastUnregistrationAt??DateTime.UtcNow,
-            EmpfohleneTeilnehmer = _selected.EmpfohleneTeilnehmer
+            EmpfohleneTeilnehmer = _selected.EmpfohleneTeilnehmer,
+            Data= _selected.Data,
+            FileName= _selected.FileName,
+            ContentType= _selected.ContentType
         };
         if (!string.IsNullOrWhiteSpace(_selected.ContentType))
         _previewDataUrl = ToDataUrl(_selected.ContentType, _selected.Data);
