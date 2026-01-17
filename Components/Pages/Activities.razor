@@ -87,7 +87,7 @@ else
                                 </div>
                             }
                             <div style="max-width: 55%;">
-                                <h4 class="mb-1">@_selected.Name</h4>
+                                <h4 class="mb-1">@_selected.Name Id:@_selected.Id</h4>
                                 <div class="text-muted">@_selected.Ort</div>
                             </div>
 
@@ -128,6 +128,10 @@ else
                                 <button class="btn btn-outline-danger" disabled="@_busy" @onclick="Unregister">
                                     Abmelden
                                 </button>
+                                <div class="d-flex text-muted small">
+                                <label class="text-muted">Extra Gäste</label>
+                                <InputNumber  @bind-value=_selected.Extra @bind-value:after="()=>UpdateExtra()"/>
+                                </div>
                             }
                             else
                             {
@@ -157,13 +161,13 @@ else
                                 {
                                     <li class="list-group-item">
                                      <div class="row align-items-center">
-                                        <div class="col-md-4">@p.DisplayName</div>
+                                        <div class="col-md-5">@p.DisplayName +@p.Extra</div>
                                         <div class="col-md-3">
                                         <AuthorizeView Roles="admin,actManager">
                                         <button class="btn-danger" @onclick="()=>UnregisterAdmin(p.UserId)">-</button>
                                         </AuthorizeView>
                                         </div>
-                                        <div class="col-md-5 text-muted small text-end">@p.RegisteredAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</div>
+                                        <div class="col-md-4 text-muted small text-end">@p.RegisteredAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</div>
                                     </div>
                                     </li>
                                 }
@@ -314,6 +318,7 @@ else
     private CancellationTokenSource? _searchCts;
 
     private int _currentUserId;
+    private int oldextra;
     private List<ActivityListItemVm> _activities = new();
     private ActivityDetailVm? _selected;
     private int _selectedId;
@@ -493,6 +498,22 @@ else
             _busy = false;
         }
     }
+    private async Task UpdateExtra(){
+        if (_selected is null) return;
+        _busy =true;
+        try{
+            var max =_selected.MaxTeilnehmer-_selected.ActiveCount+oldextra;
+            var maxUsed =max<_selected.Extra;
+            if(maxUsed)_selected.Extra=max;
+            var (ok,error) = await ActivityService.UpdateExtraAsync(_selected.Extra,_selected.Id,_currentUserId);
+            if(!ok||maxUsed){Toasts.ShowWarning( "Achtung",error??$"Du hast erfolgreich +{_selected.Extra} angemeldet");return;}
+            Toast.ShowSuccess("Anmeldung",$"Du hast erfolgreich +{_selected.Extra} angemeldet");
+            await Select(_selected.Id);
+            _activities = await ActivityService.GetListAsync();
+        }finally{
+            _busy=false;
+        }
+    } 
     private async Task OnFileSelected(InputFileChangeEventArgs e)
     {
         _selectedFile = e.File;

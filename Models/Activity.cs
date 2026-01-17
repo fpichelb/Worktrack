@@ -25,6 +25,7 @@ public class ActivityRegistration
 
     public int UserId { get; set; }
     public User User { get; set; } = null!;
+    public int Extra { get; set; }
 
     public DateTime RegisteredAt { get; set; }
     public DateTime? UnregisteredAt { get; set; } // null = aktiv angemeldet

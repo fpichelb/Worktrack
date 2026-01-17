@@ -27,14 +27,17 @@ public class ActivityListItemVm
         public byte[] Data { get; set; } = Array.Empty<byte>();
 
         public bool IsRegistered { get; set; }
+
+        public int Extra { get; set; }
         public List<ParticipantVm> Participants { get; set; } = new();
     }
 
-    public class ParticipantVm
-    {
-        public int UserId { get; set; }
-        public string DisplayName { get; set; } = "";
-        public DateTime RegisteredAt { get; set; }
+public class ParticipantVm
+{
+    public int UserId { get; set; }
+    public string DisplayName { get; set; } = "";
+    public DateTime RegisteredAt { get; set; }
+    public int Extra { get; set; }   
     }
 
     public class ActivityCreateVm

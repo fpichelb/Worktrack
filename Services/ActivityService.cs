@@ -30,6 +30,16 @@ public class ActivityService
         await db.SaveChangesAsync(ct);
         return a.Id;
     }
+    public async Task<(bool ok, string? error)> UpdateExtraAsync(int extraCount, int activityId, int userId, CancellationToken ct = default)
+    {
+        await using var db = await _factory.CreateDbContextAsync(ct);
+        var reg = await db.ActivityRegistrations.FirstOrDefaultAsync(r => r.UserId == userId && r.ActivityId == activityId && r.UnregisteredAt == null,ct);
+
+        if (reg is null) return (false, "Du bist nicht angemeldet!");
+        reg.Extra = extraCount;
+        await db.SaveChangesAsync(ct);
+        return (true,null);
+    }
 
     public async Task<(bool ok, string? error)> UpdateActivityAsync(ActivityCreateVm vm, int activityId, CancellationToken ct = default)
     {
@@ -43,9 +53,9 @@ public class ActivityService
         activity.Info = vm.Info;
         activity.MaxTeilnehmer = vm.MaxTeilnehmer;
         activity.EmpfohleneTeilnehmer = vm.EmpfohleneTeilnehmer;
-        activity.FileName =  vm.FileName;
-        activity.ContentType=   vm.ContentType;
-        activity.Data =   vm.Data;
+        activity.FileName = vm.FileName;
+        activity.ContentType = vm.ContentType;
+        activity.Data = vm.Data;
 
         await db.SaveChangesAsync(ct);
         return (true, null);
@@ -84,7 +94,8 @@ public class ActivityService
         {
             ActivityId = activityId,
             UserId = userId,
-            RegisteredAt = DateTime.UtcNow
+            RegisteredAt = DateTime.UtcNow,
+            Extra = 0
         });
 
         await db.SaveChangesAsync(ct);
@@ -120,23 +131,25 @@ public class ActivityService
             .OrderByDescending(r => r.RegisteredAt)
             .Select(r => new ParticipantVm
             {
-            UserId = r.UserId,
-            DisplayName = r.User.Name,
-            RegisteredAt = r.RegisteredAt
+                UserId = r.UserId,
+                DisplayName = r.User.Name,
+                RegisteredAt = r.RegisteredAt,
+                Extra =r.Extra
             })
             .ToListAsync(ct);
-
+        var count = Participants.Count + Participants.Sum(p => p.Extra);
         var a = await db.Activities
             .Where(a => a.Id == activityId)
             .FirstOrDefaultAsync(ct);
 
-        var IsRegistered = await db.ActivityRegistrations
-            .AnyAsync(r =>
+        var reg = await db.ActivityRegistrations
+            .FirstOrDefaultAsync(r =>
             r.ActivityId == activityId &&
             r.UserId == userId &&
             r.UnregisteredAt == null,
             ct);
         if (a is null) return new ActivityDetailVm();
+        
         return new ActivityDetailVm
         {
             Id = a.Id,
@@ -146,12 +159,13 @@ public class ActivityService
             Datum = a.Datum,
             MaxTeilnehmer = a.MaxTeilnehmer,
             EmpfohleneTeilnehmer = a.EmpfohleneTeilnehmer,
-            FileName =  a.FileName,
-            ContentType=   a.ContentType,
-            Data =   a.Data,
-            ActiveCount = Participants.Count,
+            FileName = a.FileName,
+            ContentType = a.ContentType,
+            Data = a.Data,
+            ActiveCount = count,
             LastUnregistrationAt = a.LastUnregistrationAt,
-            IsRegistered = IsRegistered,
+            IsRegistered = reg is not null,
+            Extra = reg is null? 0:reg.Extra,
             Participants = Participants
         };
     }
@@ -168,7 +182,7 @@ public class ActivityService
                 Datum = a.Datum,
                 MaxTeilnehmer = a.MaxTeilnehmer,
                 EmpfohleneTeilnehmer = a.EmpfohleneTeilnehmer,
-                ActiveCount = a.Registrations.Count(r => r.UnregisteredAt == null)
+                ActiveCount = a.Registrations.Where(r=>r.UnregisteredAt == null).Sum(r =>1 + r.Extra)
             })
             .Where(a => a.Datum > DateTime.UtcNow)
             .OrderByDescending(a => a.Datum)
