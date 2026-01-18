@@ -563,7 +563,7 @@ else
         _busy =true;
         try{
             var max =_selected.MaxTeilnehmer-_selected.ActiveCount+oldextra;
-            var maxUsed =max<_selected.Extra;
+            var maxUsed =max<_selected.Extra&&_selected.MaxTeilnehmer>0;
             if(maxUsed)_selected.Extra=max;
             var (ok,error) = await ActivityService.UpdateExtraAsync(_selected.Extra,_selected.Id,_currentUserId);
             if(!ok||maxUsed){
