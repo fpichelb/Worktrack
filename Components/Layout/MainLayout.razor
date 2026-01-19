@@ -11,34 +11,71 @@
     protected override async Task OnInitializedAsync(){
         var authState = await AuthenticationStateTask;
         user = authState.User;
+        _menuOpen = false;
         // 🔒 Nicht eingeloggt
     }
 }
     <ToastHost/>
 <div class="layout">
+<p class="mobile-menu-button d-lg-none animate-fade-down m-0  text-center">
+    <button class="btn p-0 mt-2" style="background:none;"
+            @onclick="ToggleMenu"
+            aria-label="Menü öffnen">
+        ☰
+    </button>
+</p>
+        
+
+    <div class="main-div perspective @( _menuOpen ? "effect-rotateleft modalview animate" : "" )" style="@(_menuOpen? "background: #2563eb;":"")">
+        <div class="main-content-div" @onclick="CloseMenu" ":"">
+            <div class="wrapper">
     <header>
         <a href="/">
             <img src="/images/clubwork.png" alt="Clubwork logo" width="70" height="70" style="display:block;" />
         </a>
 
-        <nav>
-            <NavLink href="/user/login">User Login</NavLink>
-            <NavLink href="/user/dashboard">Dashboard</NavLink>
-            <NavLink href="/activities">Aktivitäten</NavLink>
+        <div class="d-flex align-items-center justify-content-between h-100">
+
+            <!-- Desktop: Topbar Menü -->
+            <nav class="d-none d-lg-flex align-items-center gap-2">
+        
+            <NavLink  href="/user/login">User Login</NavLink>
+            <NavLink  href="/user/dashboard">Dashboard</NavLink>
+            <NavLink  href="/activities">Aktivitäten</NavLink>
             @if(IsAdmin){
-            <NavLink href="/admin/dashboard">Admin</NavLink>}
-        </nav>
-
+            <NavLink  href="/admin/dashboard">Admin</NavLink>}
+            </nav>
+        </div>
     </header>
+     <!-- Mobile Offcanvas -->
 
-    <main class="container">
-        @Body
-    </main>
-   
+    
+        
+     <main class="container">
+         @Body
+     </main>
+           
+        
+
     <footer>
         © @(DateTime.Now.Year) Worktrack – All rights reserved.
         <a href="/impressum">Impressum</a> · 
         <a href="/datenschutz">Datenschutz</a>
     </footer>
-    
+            </div>
+        </div> 
+    <nav class="menu-overlay slideInMainMenu animated d-block">
+    <a @onclick="CloseMenu" href="/user/dashboard">Dashboard</a>
+    <a @onclick="CloseMenu" href="/activities">Aktivitäten</a>
+    <a @onclick="CloseMenu" href="/user/login">User Login</a>
+    @if(IsAdmin){
+    <a @onclick="CloseMenu" href="/admin/dashboard">Admin</a>}
+    </nav>    
+    </div>  
 </div>
+@code {
+    private bool _menuOpen;
+
+    private void ToggleMenu() => _menuOpen = !_menuOpen;
+    private void CloseMenu() => _menuOpen = false;
+}
