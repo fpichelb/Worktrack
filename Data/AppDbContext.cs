@@ -23,6 +23,7 @@ public class AppDbContext : DbContext
     public DbSet<Impressum> ImpressumData { get; set; }
     public DbSet<Activity> Activities { get; set; }
     public DbSet<ActivityRegistration> ActivityRegistrations { get; set; }
+    public DbSet<NewsItem> NewsItems { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

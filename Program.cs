@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Worktrack.Data;
 using Worktrack.Services;
+using Worktrack.Interface;
 using Worktrack.Components;
 using Blazored.LocalStorage;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -54,9 +55,11 @@ builder.Services.AddScoped<TimeEntryService>()
                 .AddScoped<PrivacyPolicyService>()
                 .AddScoped<ToastService>()
                 .AddScoped<EventService>()
+                .AddScoped<NewsService>()
                 .AddScoped<ActivityService>();
 
-builder.Services.AddHostedService<AutoCheckoutHostedService>();
+builder.Services.AddHostedService<AutoCheckoutHostedService>()
+                .AddSingleton<IBlobStorage, FileSystemBlobStorage>();
 // ------------------------------------------
 //  4. App erstellen
 // ------------------------------------------
@@ -81,6 +84,21 @@ app.UseAntiforgery();
 //  6. Razor-Komponenten aktivieren
 // ------------------------------------------
 app.MapControllers();
+app.MapGet("/news/file/{id:int}", async (
+    int id,
+    NewsService news,
+    IBlobStorage blob,
+    CancellationToken ct) =>
+{
+    var item = await news.GetAsync(id, ct);
+    if (item is null) return Results.NotFound();
+
+    var opened = await blob.OpenAsync(item.BlobKey, item.ContentType, item.FileName, ct);
+    if (opened is null) return Results.NotFound();
+
+    return Results.File(opened.Value.stream, item.ContentType, fileDownloadName: item.FileName, enableRangeProcessing: true);
+})
+.RequireAuthorization();
 app.MapRazorComponents<App>()
    .AddInteractiveServerRenderMode()
    .DisableAntiforgery();

@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @using Microsoft.VisualBasic
 @inject NavigationManager Nav
+@inject NewsService NService
 
 <h2>User Dashboard</h2>
 
@@ -17,8 +18,45 @@ else
 
         <!-- HEADER -->
         <div class="card">
+            <div class="row g-2">
+            <div class="col-md-6">
             <h2>Hallo, @CurrentUser?.Name!</h2>
             <p>Hier findest du alle deine Arbeitsstunden und Teilnahmen.</p>
+            </div>
+            <div class="col-md-6">
+            <h2>News</h2>
+            <div class="row g-2">
+            @foreach (var n in _news)
+                {
+                    <div class="card col-md-4 p-0">
+                    <a  href="@($"/news/file/{n.Id}")" target="_blank"class="btn p-0 border-0 bg-transparent ">
+                        @if (n.ContentType.StartsWith("image/"))
+                        {
+                            <div class="position-relative  hover-parent">
+                                <img class="card-img-top" src="@($"/news/file/{n.Id}")" style="height:90px; object-fit:cover; cursor:zoom-in;" />
+                            <div class="position-absolute top-0 end-100  ms-2 d-none hover-child border-5" style="z-index:9100;">
+                                <img src="@($"/news/file/{n.Id}")"
+                                  class="rounded shadow"
+                                  style="width:240px; " />
+                            </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="p-4 text-center text-muted"style="height:90px; object-fit:cover;">
+                                <div class="fw-semibold">PDF</div>
+                            </div>
+                        }
+
+                        
+                        <h6 class="card-title text-center "style="color:black;" title="@n.Title">@n.Title</h6>
+                        
+                    </a>
+                    </div>
+                }
+                </div>
+            </div>
+            </div>
         </div>
 
         <!-- USER HOURS SUMMARY -->
@@ -131,6 +169,7 @@ else
     private List<TimeEntry> UserEntries = new();
     private List<EventStatsModel> MyEventStats = new();
     private bool _loaded;
+    private List<NewsItem> _news =new List<NewsItem>();
     private double TotalHours = 0;
     private int EventsVisited = 0;
     private string UserLoginUrl="/user/login";
@@ -158,8 +197,10 @@ else
     CurrentUser = await UService.GetUserByStringId(userId);
     if (CurrentUser is null)
         return;
-    _loaded = true;    
+    _loaded = true;   
+    _news=await NService.ListPinnedForDashboardAsync(); 
     await LoadStats();    
+    
    
 }
 

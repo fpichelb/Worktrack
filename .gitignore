@@ -7,3 +7,5 @@ k/.idea/
 appsettings.json
 .DS_Store
 appsettings.Development.json
+/App_data
+*.csv

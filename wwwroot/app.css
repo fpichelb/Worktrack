@@ -574,6 +574,9 @@ input[type="date"] {
     transform: translateY(15px);
   }
 }
+.hover-parent:hover .hover-child {
+  display: block !important;
+}
 
 @media (max-width: 900px) {
   h1 {
