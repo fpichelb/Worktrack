@@ -562,9 +562,11 @@ else
         if (_selected is null) return;
         _busy =true;
         try{
-            var max =_selected.MaxTeilnehmer-_selected.ActiveCount+oldextra;
+
+            var max =Math.Max(_selected.MaxTeilnehmer-_selected.ActiveCount+oldextra,oldextra);
             var maxUsed =max<_selected.Extra&&_selected.MaxTeilnehmer>0;
-            if(maxUsed)_selected.Extra=max;
+            if(maxUsed)_selected.Extra=max<0?0:max;
+            _selected.Extra=_selected.Extra<0?0:_selected.Extra;
             var (ok,error) = await ActivityService.UpdateExtraAsync(_selected.Extra,_selected.Id,_currentUserId);
             if(!ok||maxUsed){
                 Toasts.ShowWarning( "Achtung",error??$"Du hast erfolgreich +{_selected.Extra} angemeldet");
