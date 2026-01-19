@@ -26,13 +26,13 @@
 </p>
         
 
-    <div class="main-div perspective @( _menuOpen ? "effect-rotateleft modalview animate" : "" )" style="@(_menuOpen? "background: #2563eb;":"")">
-        <div class="main-content-div" @onclick="CloseMenu" ":"">
+     <div class="main-div perspective @( _menuOpen ? "effect-rotateleft modalview animate" : "" )" style="@(_menuOpen? "background: #2563eb;":"")"> 
+        <div class="main-content-div" @onclick="CloseMenu">
             <div class="wrapper">
     <header>
         <a href="/">
             <img src="/images/clubwork.png" alt="Clubwork logo" width="70" height="70" style="display:block;" />
-        </a>
+        </a> 
 
         <div class="d-flex align-items-center justify-content-between h-100">
 
@@ -46,8 +46,8 @@
             <NavLink  href="/admin/dashboard">Admin</NavLink>}
             </nav>
         </div>
-    </header>
-     <!-- Mobile Offcanvas -->
+    </header> 
+     <!-- Mobile Offcanvas --> 
 
     
         
@@ -65,9 +65,9 @@
             </div>
         </div> 
     <nav class="menu-overlay slideInMainMenu animated d-block">
+    <a @onclick="CloseMenu" href="/user/login">User Login</a>
     <a @onclick="CloseMenu" href="/user/dashboard">Dashboard</a>
     <a @onclick="CloseMenu" href="/activities">Aktivitäten</a>
-    <a @onclick="CloseMenu" href="/user/login">User Login</a>
     @if(IsAdmin){
     <a @onclick="CloseMenu" href="/admin/dashboard">Admin</a>}
     </nav>    
