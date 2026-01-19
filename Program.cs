@@ -97,6 +97,21 @@ app.MapGet("/news/file/{id:int}", async (
     if (opened is null) return Results.NotFound();
 
     return Results.File(opened.Value.stream, item.ContentType, fileDownloadName: item.FileName, enableRangeProcessing: true);
+}).RequireAuthorization();
+app.MapGet("/news/view/{id:int}", async (
+    int id,
+    NewsService news,
+    IBlobStorage blob,
+    CancellationToken ct) =>
+{
+    var item = await news.GetAsync(id, ct);
+    if (item is null) return Results.NotFound();
+
+    var opened = await blob.OpenAsync(item.BlobKey, item.ContentType, item.FileName, ct);
+    if (opened is null) return Results.NotFound();
+
+    // WICHTIG: kein fileDownloadName => Browser versucht inline zu rendern
+    return Results.File(opened.Value.stream, item.ContentType, enableRangeProcessing: true);
 })
 .RequireAuthorization();
 app.MapRazorComponents<App>()
