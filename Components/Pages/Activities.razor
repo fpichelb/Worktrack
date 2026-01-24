@@ -136,24 +136,29 @@ else
 
                         <p class="mb-3">@_selected.Info</p>
                         
-                        <div class="d-flex gap-2">
+                        <div class="d-inline gap-2  ">
                             @if (_isRegistered)
-                            {
-                                <button class="btn btn-outline-danger" disabled="@_busy" @onclick="Unregister">
+                            {   
+                                <div class="row m-0">
+                                <button class="btn btn-remove col-md-3 " disabled="@_busy" @onclick="Unregister">
                                     Abmelden
                                 </button>
-                                <div class="d-flex text-muted small">
-                                <label class="text-muted">Extra Gäste</label>
-                                <InputNumber min="0"
+                                <div class="col-md-4"></div>
+                                <div class="col-md-2">
+                                <p class="text-muted mb-0 mt-2 ms-4"style="font-size:11px;">Extra <br />Gäste</p>
+                                </div>
+                                <InputNumber class ="col-md-3 text-right" min="0"
                                             step="1" 
                                             @bind-value=_selected.Extra @bind-value:after="()=>UpdateExtra()"/>
+                                
                                 </div>
                             }
                             else
                             {
-                                <button class="btn btn-primary" disabled="@RegistrationDisabled" @onclick="Register">
+                                <button class="btn btn-primary " disabled="@RegistrationDisabled" @onclick="Register">
                                     Anmelden
                                 </button>
+                                <p class="text-muted small mt-1" > Du musst dich erst zur Aktivität anmelden,<br />bevor du Extra Gäste angeben kannst.</p>
                             }
 
                             @if ((_selected.ActiveCount >= _selected.MaxTeilnehmer &&
@@ -175,17 +180,19 @@ else
                             <ul class="list-group">
                                 @foreach (var p in _selected.Participants)
                                 {
-                                    <li class="list-group-item">
-                                     <div class="row align-items-center">
-                                        <div class="col-md-5">@p.DisplayName +@p.Extra</div>
-                                        <div class="col-md-3">
-                                        <AuthorizeView Roles="admin,actManager">
-                                        <button class="btn-danger" @onclick="()=>UnregisterAdmin(p.UserId)">-</button>
-                                        </AuthorizeView>
-                                        </div>
-                                        <div class="col-md-4 text-muted small text-end">@p.RegisteredAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</div>
+                                    
+                                    <div class="list-group-item multi-row d-flex" >
+                                     
+                                        <div class="col-md-6">@p.DisplayName +@p.Extra</div>
+                                        <div class="col-md-5 text-muted small text-end">@p.RegisteredAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</div>
+                                    
+                                    
+                                    <AuthorizeView Roles="admin,actManager">
+                                        <button class="btn-remove text-right ms-3" @onclick="()=>UnregisterAdmin(p.UserId)">✕</button>
+                                    </AuthorizeView>
+                                    
                                     </div>
-                                    </li>
+                                    
                                 }
                             </ul>
                         }

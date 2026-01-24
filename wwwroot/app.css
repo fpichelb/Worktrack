@@ -93,6 +93,7 @@ body {
 
 .modalview .wrapper {
 	-webkit-transform: translateZ(-1px); /* solves a rendering bug in Chrome on Windows */
+  transform: translateZ(-1px);
 }
 
 .animate .main-content-div::after {
@@ -145,10 +146,7 @@ body {
   transition:transform 220ms ease;
   z-index:40;
 }
-/* Open state */
-.menu-open .side-menu{ transform:translateX(0); }
-.menu-open .menu-overlay{ opacity:1; pointer-events:auto; }
-.menu-open .page-content{ transform:translateX(220px) scale(.92); filter:blur(.4px); }
+
 
 .page-content{
   min-height:calc(100vh - 56px);

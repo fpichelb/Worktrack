@@ -17,16 +17,17 @@
 }
     <ToastHost/>
 <div class="layout">
+@if(!_menuOpen){
 <p class="mobile-menu-button d-lg-none animate-fade-down m-0  text-center">
     <button class="btn p-0 mt-2" style="background:none;"
             @onclick="ToggleMenu"
             aria-label="Menü öffnen">
         ☰
     </button>
-</p>
+</p>}
         
 
-     <div class="main-div perspective @( _menuOpen ? "effect-rotateleft modalview animate" : "" )" style="@(_menuOpen? "background: #2563eb;":"")"> 
+     <div class="main-div perspective effect-rotateleft @(_modalview? "modalview":"") @( _menuOpen ? "animate" : "" )" style="background: #2563eb;"> 
         <div class="main-content-div" @onclick="CloseMenu">
             <div class="wrapper">
     <header>
@@ -65,17 +66,18 @@
             </div>
         </div> 
     <nav class="menu-overlay slideInMainMenu animated d-block">
-    <a @onclick="CloseMenu" href="/user/login">User Login</a>
-    <a @onclick="CloseMenu" href="/user/dashboard">Dashboard</a>
-    <a @onclick="CloseMenu" href="/activities">Aktivitäten</a>
+    <a @onclick="CloseMenu" class="animated" href="/user/login">User Login</a>
+    <a @onclick="CloseMenu" class="animated" href="/user/dashboard">Dashboard</a>
+    <a @onclick="CloseMenu" class="animated" href="/activities">Aktivitäten</a>
     @if(IsAdmin){
-    <a @onclick="CloseMenu" href="/admin/dashboard">Admin</a>}
+    <a @onclick="CloseMenu" class="animated" href="/admin/dashboard">Admin</a>}
     </nav>    
     </div>  
 </div>
 @code {
     private bool _menuOpen;
+    private bool _modalview = false;
 
-    private void ToggleMenu() => _menuOpen = !_menuOpen;
-    private void CloseMenu() => _menuOpen = false;
+    private void ToggleMenu(){_menuOpen = true; _modalview=true;}
+    private async Task CloseMenu(){ _menuOpen = false; await Task.Delay(350); _modalview=false;}
 }
