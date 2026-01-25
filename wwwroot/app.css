@@ -103,16 +103,6 @@ body {
 	transition: opacity 0.3s;
 }
 
-
-
-.menu-overlay{
-	-webkit-transform: translateY(-50%);
-	transform: translateY(-50%);
-	-webkit-transform-style: preserve-3d;
-	transform-style: preserve-3d;
-  -webkit-animation-name: slideInMainMenu;
-  animation-name: slideInMainMenu;
-}
 .menu-overlay a {
   text-decoration: none;
 	display: inline-block;

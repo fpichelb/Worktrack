@@ -185,12 +185,9 @@ else
                                      
                                         <div class="col-6 small">@p.DisplayName +@p.Extra</div>
                                         <div class="col-5 text-muted small text-end">@p.RegisteredAt.ToLocalTime().ToString("dd.MM HH:mm")</div>
-                                    
-                                    
                                     <AuthorizeView Roles="admin,actManager">
-                                        <button class="btn-remove text-right ms-3" @onclick="()=>UnregisterAdmin(p.UserId)">✕</button>
-                                    </AuthorizeView>
-                                    
+                                        <button class="btn-remove ms-3 p-auto" @onclick="()=>UnregisterAdmin(p.UserId)">✕</button>
+                                    </AuthorizeView> 
                                     </div>
                                     
                                 }
