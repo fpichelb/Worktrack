@@ -139,18 +139,18 @@ else
                         <div class="d-inline gap-2  ">
                             @if (_isRegistered)
                             {   
-                                <div class="row m-0">
-                                <button class="btn btn-remove col-md-3 " disabled="@_busy" @onclick="Unregister">
+                                <div class="row m-0 justify-content-between">
+                                <div class="col-auto p-0">
+                                <button class="btn btn-remove " disabled="@_busy" @onclick="Unregister">
                                     Abmelden
-                                </button>
-                                <div class="col-md-4"></div>
-                                <div class="col-md-2">
-                                <p class="text-muted mb-0 mt-2 ms-4"style="font-size:11px;">Extra <br />Gäste</p>
-                                </div>
-                                <InputNumber class ="col-md-3 text-right" min="0"
+                                </button></div>
+                                <div class="col-5 d-flex">
+                                <p class="text-muted col-6 mb-0 mt-2 me-3 text-end"style="font-size:11px;">Extra <br />Gäste</p>
+                                
+                                <InputNumber class ="col-6 text-right" min="0"
                                             step="1" 
                                             @bind-value=_selected.Extra @bind-value:after="()=>UpdateExtra()"/>
-                                
+                                </div>
                                 </div>
                             }
                             else
@@ -181,10 +181,10 @@ else
                                 @foreach (var p in _selected.Participants)
                                 {
                                     
-                                    <div class="list-group-item multi-row d-flex" >
+                                    <div class="list-group-item multi-row-2 d-flex" >
                                      
-                                        <div class="col-md-6">@p.DisplayName +@p.Extra</div>
-                                        <div class="col-md-5 text-muted small text-end">@p.RegisteredAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</div>
+                                        <div class="col-6 small">@p.DisplayName +@p.Extra</div>
+                                        <div class="col-5 text-muted small text-end">@p.RegisteredAt.ToLocalTime().ToString("dd.MM.yyyy")</div>
                                     
                                     
                                     <AuthorizeView Roles="admin,actManager">

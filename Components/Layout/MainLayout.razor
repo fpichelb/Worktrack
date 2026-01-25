@@ -40,11 +40,11 @@
             <!-- Desktop: Topbar Menü -->
             <nav class="d-none d-lg-flex align-items-center gap-2">
         
-            <NavLink  href="/user/login">User Login</NavLink>
-            <NavLink  href="/user/dashboard">Dashboard</NavLink>
-            <NavLink  href="/activities">Aktivitäten</NavLink>
+            <a  href="/user/login">User Login</a>
+            <a  href="/user/dashboard">Dashboard</a>
+            <a  href="/activities">Aktivitäten</a>
             @if(IsAdmin){
-            <NavLink  href="/admin/dashboard">Admin</NavLink>}
+            <a  href="/admin/dashboard">Admin</a>}
             </nav>
         </div>
     </header> 
@@ -65,13 +65,18 @@
     </footer>
             </div>
         </div> 
+    
+     <div class="offcanvas-menu-wrapper">  
+     <div class="bubble active"></div>
+    <div class="bubble hover"></div>
     <nav class="menu-overlay slideInMainMenu animated d-block">
-    <a @onclick="CloseMenu" class="animated" href="/user/login">User Login</a>
-    <a @onclick="CloseMenu" class="animated" href="/user/dashboard">Dashboard</a>
-    <a @onclick="CloseMenu" class="animated" href="/activities">Aktivitäten</a>
+    <a @onclick="CloseMenu" class="animated @Active("login")" href="/user/login">User Login</a>
+    <a @onclick="CloseMenu" class="animated @Active("/user/dashboard")" href="/user/dashboard">Dashboard</a>
+    <a @onclick="CloseMenu" class="animated @Active("activities")" href="/activities">Aktivitäten</a>
     @if(IsAdmin){
-    <a @onclick="CloseMenu" class="animated" href="/admin/dashboard">Admin</a>}
-    </nav>    
+    <a @onclick="CloseMenu" class="animated @Active("admin")" href="/admin/dashboard">Admin</a>}
+    </nav>   
+    </div>
     </div>  
 </div>
 @code {
@@ -80,4 +85,12 @@
 
     private void ToggleMenu(){_menuOpen = true; _modalview=true;}
     private async Task CloseMenu(){ _menuOpen = false; await Task.Delay(350); _modalview=false;}
+
+    string Active(string page)
+    {
+        var uri = Nav.Uri.ToLower();
+        return uri.Contains($"{page}".ToLower())
+        ? "active"
+        : "";
+    }
 }

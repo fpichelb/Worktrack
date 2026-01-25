@@ -106,25 +106,18 @@ body {
 
 
 .menu-overlay{
-  width:185px;
-  position: absolute;
-	height: auto;
-	font-size: 2em;
-  top: 50%;
 	-webkit-transform: translateY(-50%);
 	transform: translateY(-50%);
 	-webkit-transform-style: preserve-3d;
 	transform-style: preserve-3d;
   -webkit-animation-name: slideInMainMenu;
   animation-name: slideInMainMenu;
-  left: 45%;
 }
 .menu-overlay a {
   text-decoration: none;
 	display: inline-block;
 	white-space: nowrap;
 	font-weight: 300;
-	margin: 0 0 30px 0;
 	color: #fff;
 	-webkit-transition: color 0.3s;
 	transition: color 0.3s;
