@@ -124,7 +124,7 @@ else
                                         @_selected.Datum.ToShortDateString()
                                         <br>
                                         Abmeldung bis:
-                                        @_selected.LastUnregistrationAt.Value.ToLocalTime().ToString("dd.MM.yy")
+                                        @_selected.LastUnregistrationAt.Value.ToLocalTime().ToString("dd.MM.yyyy")
                                         
 
                                     </div>
@@ -184,7 +184,7 @@ else
                                     <div class="list-group-item multi-row-2 d-flex" >
                                      
                                         <div class="col-6 small">@p.DisplayName +@p.Extra</div>
-                                        <div class="col-5 text-muted small text-end">@p.RegisteredAt.ToLocalTime().ToString("dd.MM.yyyy")</div>
+                                        <div class="col-5 text-muted small text-end">@p.RegisteredAt.ToLocalTime().ToString("dd.MM HH:mm")</div>
                                     
                                     
                                     <AuthorizeView Roles="admin,actManager">
