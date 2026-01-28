@@ -99,17 +99,18 @@ namespace Worktrack.Services
         }
 
         public List<User> SortUser(List<User> Users, string query, int Elements = 5) {
-            return Users
-            .OrderByDescending(u => GetMatchScore(query, u.Name))
-            .Take(Elements)
-            .ToList();
+            return Elements == 0 ? [.. Users.OrderByDescending(u => GetMatchScore(query, u.Name))] :
+            [.. Users.OrderByDescending(u => GetMatchScore(query, u.Name)).Take(Elements)];
         }
 
         public async Task<List<User>> GetBestUsers(string query, int Elements = 5, CancellationToken ct=default)
         {
             var Users = await GetAllAsync(ct);
-            return Users
+
+            return (Elements == 0) ? Users
             .OrderByDescending(u => GetMatchScore(query, u.Name))
+            .ToList()
+            :Users.OrderByDescending(u => GetMatchScore(query, u.Name))
             .Take(Elements)
             .ToList();
         }
