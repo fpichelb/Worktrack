@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Worktrack.Data;
 
@@ -11,9 +12,11 @@ using Worktrack.Data;
 namespace Worktrack.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260129094811_AddActivitygroups")]
+    partial class AddActivitygroups
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -189,25 +192,30 @@ namespace Worktrack.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ActivityGroups");
+                    b.ToTable("ActivityGroup");
                 });
 
             modelBuilder.Entity("Worktrack.Models.ActivityGroupLink", b =>
                 {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
                     b.Property<int>("ActivityId")
                         .HasColumnType("int");
 
                     b.Property<int>("GroupId")
                         .HasColumnType("int");
 
-                    b.Property<int>("Id")
-                        .HasColumnType("int");
+                    b.HasKey("Id");
 
-                    b.HasKey("ActivityId", "GroupId");
+                    b.HasIndex("ActivityId");
 
                     b.HasIndex("GroupId");
 
-                    b.ToTable("ActivityGroupLinks");
+                    b.ToTable("ActivityGroupLink");
                 });
 
             modelBuilder.Entity("Worktrack.Models.ActivityRegistration", b =>

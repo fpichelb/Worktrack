@@ -274,6 +274,11 @@ footer {
   border-radius: 6px;
 }
 
+.btn-background-none{
+  border:none;
+  background:none;
+}
+
 input,
 textarea,
 select {

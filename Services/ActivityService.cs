@@ -5,6 +5,7 @@ using Worktrack.Data;
 using Worktrack.Models;
 using Worktrack.ViewModels;
 namespace Worktrack.Services;
+
 public class ActivityService
 {
     private readonly IDbContextFactory<AppDbContext> _factory;
@@ -22,9 +23,9 @@ public class ActivityService
             LastUnregistrationAt = vm.UnregisteredAt,
             MaxTeilnehmer = vm.MaxTeilnehmer,
             EmpfohleneTeilnehmer = vm.EmpfohleneTeilnehmer,
-            FileName =  vm.FileName,
-            ContentType=   vm.ContentType,
-            Data =   vm.Data
+            FileName = vm.FileName,
+            ContentType = vm.ContentType,
+            Data = vm.Data
         };
         db.Activities.Add(a);
         await db.SaveChangesAsync(ct);
@@ -33,12 +34,12 @@ public class ActivityService
     public async Task<(bool ok, string? error)> UpdateExtraAsync(int extraCount, int activityId, int userId, CancellationToken ct = default)
     {
         await using var db = await _factory.CreateDbContextAsync(ct);
-        var reg = await db.ActivityRegistrations.FirstOrDefaultAsync(r => r.UserId == userId && r.ActivityId == activityId && r.UnregisteredAt == null,ct);
+        var reg = await db.ActivityRegistrations.FirstOrDefaultAsync(r => r.UserId == userId && r.ActivityId == activityId && r.UnregisteredAt == null, ct);
 
         if (reg is null) return (false, "Du bist nicht angemeldet!");
         reg.Extra = extraCount;
         await db.SaveChangesAsync(ct);
-        return (true,null);
+        return (true, null);
     }
 
     public async Task<(bool ok, string? error)> UpdateActivityAsync(ActivityCreateVm vm, int activityId, CancellationToken ct = default)
@@ -71,7 +72,7 @@ public class ActivityService
             .FirstOrDefaultAsync(x => x.Id == id, ct);
     }
 
-    public async Task<(bool ok, string? error)> RegisterAsync(int activityId, int userId, bool adminOverride=false,CancellationToken ct = default)
+    public async Task<(bool ok, string? error)> RegisterAsync(int activityId, int userId, bool adminOverride = false, CancellationToken ct = default)
     {
         await using var db = await _factory.CreateDbContextAsync(ct);
 
@@ -87,7 +88,7 @@ public class ActivityService
         var activeCount = await db.ActivityRegistrations
             .CountAsync(r => r.ActivityId == activityId && r.UnregisteredAt == null, ct);
 
-        if (activeCount >= activity.MaxTeilnehmer && activity.MaxTeilnehmer>0&&!adminOverride)
+        if (activeCount >= activity.MaxTeilnehmer && activity.MaxTeilnehmer > 0 && !adminOverride)
             return (false, "Maximale Teilnehmerzahl erreicht.");
 
         db.ActivityRegistrations.Add(new ActivityRegistration
@@ -102,7 +103,7 @@ public class ActivityService
         return (true, null);
     }
 
-    public async Task<(bool ok, string? error)> UnregisterAsync(int activityId, int userId,bool adminOverride=false, CancellationToken ct = default)
+    public async Task<(bool ok, string? error)> UnregisterAsync(int activityId, int userId, bool adminOverride = false, CancellationToken ct = default)
     {
         await using var db = await _factory.CreateDbContextAsync(ct);
 
@@ -115,7 +116,7 @@ public class ActivityService
         if (reg is null) return (false, "Du bist nicht angemeldet.");
 
         var now = DateTime.Today;
-        if ((DateTime.Compare(activity.LastUnregistrationAt ?? DateTime.UtcNow, now) < 0)&&!adminOverride) return (false, "Die Zeit zum Abmelden ist bereits abgelaufen.");
+        if ((DateTime.Compare(activity.LastUnregistrationAt ?? DateTime.UtcNow, now) < 0) && !adminOverride) return (false, "Die Zeit zum Abmelden ist bereits abgelaufen.");
 
         reg.UnregisteredAt = now;
 
@@ -134,13 +135,17 @@ public class ActivityService
                 UserId = r.UserId,
                 DisplayName = r.User.Name,
                 RegisteredAt = r.RegisteredAt,
-                Extra =r.Extra
+                Extra = r.Extra
             })
             .ToListAsync(ct);
         var count = Participants.Count + Participants.Sum(p => p.Extra);
         var a = await db.Activities
             .Where(a => a.Id == activityId)
             .FirstOrDefaultAsync(ct);
+        var groupIds = await db.ActivityGroupLinks
+            .Where(l => l.ActivityId == activityId)
+            .Select(l => l.GroupId)
+            .ToListAsync(ct);
 
         var reg = await db.ActivityRegistrations
             .FirstOrDefaultAsync(r =>
@@ -149,7 +154,7 @@ public class ActivityService
             r.UnregisteredAt == null,
             ct);
         if (a is null) return new ActivityDetailVm();
-        
+
         return new ActivityDetailVm
         {
             Id = a.Id,
@@ -165,11 +170,12 @@ public class ActivityService
             ActiveCount = count,
             LastUnregistrationAt = a.LastUnregistrationAt,
             IsRegistered = reg is not null,
-            Extra = reg is null? 0:reg.Extra,
-            Participants = Participants
+            Extra = reg is null ? 0 : reg.Extra,
+            Participants = Participants,
+            GroupIds = groupIds
         };
     }
-    public async Task<List<ActivityListItemVm>> GetListAsync(int userId , CancellationToken ct = default)
+    public async Task<List<ActivityListItemVm>> GetListAsync(int userId, CancellationToken ct = default)
     {
         await using var db = await _factory.CreateDbContextAsync(ct);
 
@@ -183,11 +189,86 @@ public class ActivityService
                 MaxTeilnehmer = a.MaxTeilnehmer,
                 EmpfohleneTeilnehmer = a.EmpfohleneTeilnehmer,
                 ActiveCount = a.Registrations.Where(r => r.UnregisteredAt == null).Sum(r => 1 + r.Extra),
-                IsRegistered = a.Registrations.Any(r=> r.UserId==userId&&r.UnregisteredAt==null)
+                IsRegistered = a.Registrations.Any(r => r.UserId == userId && r.UnregisteredAt == null),
+                GroupIds = a.GroupLinks.Select(gl => gl.GroupId).ToList(),
+                GroupNames = a.GroupLinks.Select(gl => gl.Group.Name).ToList()
             })
             .Where(a => a.Datum > DateTime.UtcNow)
             .OrderByDescending(a => a.Datum)
             .ToListAsync(ct);
         return list;
+    }//Group Services
+    public async Task<List<ActivityGroupVm>> GetGroupsAsync(CancellationToken ct = default)
+{
+    await using var db = await _factory.CreateDbContextAsync(ct);
+
+    return await db.ActivityGroups
+        .OrderBy(g => g.SortOrder).ThenBy(g => g.Name)
+        .Select(g => new ActivityGroupVm { Id = g.Id, Name = g.Name })
+        .ToListAsync(ct);
+}
+
+public async Task<(bool ok, string? error, int? id)> AddGroupAsync(string name, CancellationToken ct = default)
+{
+    name = (name ?? "").Trim();
+    if (name.Length < 2) return (false, "Name zu kurz.", null);
+
+    await using var db = await _factory.CreateDbContextAsync(ct);
+
+    var exists = await db.ActivityGroups.AnyAsync(g => g.Name == name, ct);
+    if (exists) return (false, "Gruppe existiert bereits.", null);
+
+    var g = new ActivityGroup { Name = name };
+    db.ActivityGroups.Add(g);
+    await db.SaveChangesAsync(ct);
+
+    return (true, null, g.Id);
+}
+
+    public async Task<(bool ok, string? error)> DeleteGroupAsync(int groupId, CancellationToken ct = default)
+    {
+        await using var db = await _factory.CreateDbContextAsync(ct);
+
+        var used = await db.ActivityGroups.AnyAsync(a => a.ActivityLinks.Any() , ct);
+        if (used) return (false, "Gruppe wird noch verwendet. Entferne erst die Zuordnung.");
+
+        var g = await db.ActivityGroups.FirstOrDefaultAsync(x => x.Id == groupId, ct);
+        if (g is null) return (false, "Gruppe nicht gefunden.");
+
+        db.ActivityGroups.Remove(g);
+        await db.SaveChangesAsync(ct);
+        return (true, null);
+    }
+    public async Task<(bool ok, string? error)> SetActivityGroupsAsync(
+        int activityId,
+        List<int> groupIds,
+        CancellationToken ct = default)
+    {
+        await using var db = await _factory.CreateDbContextAsync(ct);
+
+        var activityExists = await db.Activities.AnyAsync(a => a.Id == activityId, ct);
+        if (!activityExists) return (false, "Aktivität nicht gefunden.");
+
+        groupIds = groupIds.Distinct().ToList();
+
+        // Optional: nur existierende Gruppen zulassen
+        var validIds = await db.ActivityGroups
+            .Where(g => groupIds.Contains(g.Id))
+            .Select(g => g.Id)
+            .ToListAsync(ct);
+
+        // Remove existing links
+        var existing = await db.ActivityGroupLinks
+            .Where(l => l.ActivityId == activityId)
+            .ToListAsync(ct);
+
+        db.ActivityGroupLinks.RemoveRange(existing);
+
+        // Add new links
+        foreach (var gid in validIds)
+            db.ActivityGroupLinks.Add(new ActivityGroupLink { ActivityId = activityId, GroupId = gid });
+
+        await db.SaveChangesAsync(ct);
+        return (true, null);
     }
 }

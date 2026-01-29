@@ -31,7 +31,17 @@ else
                     <span class="small fw-semibold">Übersicht</span>
 
                     <div class="d-flex align-items-center gap-4">
-                        <div class="d-flex flex-column">
+                        <button class= " btn-background-none py-1" @onclick="()=>_showFilter=!_showFilter"> Filter ▼</button>
+                        <button class="btn btn-primary" style="max-width:115px;" @onclick="Reload">
+                            Neu laden
+                        </button>
+                    </div>
+                </div>
+                @if(_showFilter){
+                <div class="position-absolute bg-light border rounded shadow p-3" style="z-index: 999; right:20px; top:70px;">
+                            <label class="text-end p-0 m-0">
+                            <button class=" btn-remove btn-background-none p-0 m-0" @onclick="(()=>_showFilter=false)">✕</button>
+                            </label>
                             <label class="form-check form-switch mb-0 small mt-0">
                                 <input class="form-check-input" type="checkbox" @bind="_filterRegistered" />
                                 Angemeldet
@@ -41,40 +51,90 @@ else
                                 <input class="form-check-input" type="checkbox" @bind="_filterNext14Days" />
                                 in 14 Tagen
                             </label>
-                        </div>
-                        <button class="btn btn-primary" style="max-width:115px;" @onclick="Reload">
-                            Neu laden
-                        </button>
-                    </div>
+                            <label class="form-check form-switch mb-0 small mt-0">
+                                <input class="form-check-input" type="checkbox" @bind="_sortByGroups" />
+                                nach Gruppen Sortieren
+                            </label>
+                            <label>Nur eine Gruppe anzeigen
+                            <select class="form-select form-select-sm"  @bind="_filterGroupId">
+                            <option value="-1">Alle Gruppen</option>
+                            @foreach (var g in _groups)
+                            {
+                                <option value="@g.Id">@g.Name</option>
+                            }
+                            
+                 </select>
+                </label>
                 </div>
-
+                }
                 <div class="list-group list-group-flush">
-                    @foreach (var a in FilteredActivities)
-                    {
-                        var active = _selected?.Id == a.Id;
-                        <button type="button" class="list-group-item list-group-item-action @(active ? "active" : "")"
-                            @onclick="() => Select(a.Id)">
-                            <div class="d-flex justify-content-between">
-                                <div>
-                                    <div class="fw-semibold">@a.Name</div>
-                                    <div class="small text-muted">@a.Ort</div>
-                                </div>
-                                <div class="text-end small">
-                                    @if (a.MaxTeilnehmer > 0)
-                                    {
-                                        <div>@a.ActiveCount/@a.MaxTeilnehmer</div>
-                                    }
-                                    else
-                                    {
-                                        <div>@a.ActiveCount</div>
-                                    }
-                                    @if (a.EmpfohleneTeilnehmer > 0)
-                                    {
-                                        <div class="text-muted">empf. @a.EmpfohleneTeilnehmer</div>
-                                    }
-                                </div>
+                    @if(_sortByGroups){
+                        @foreach (var grp in FilteredActivities
+                            .SelectMany(a => a.GroupNames.DefaultIfEmpty("(Ohne Gruppe)"),
+                                        (a, g) => new { Activity = a, Group = g })
+                            .GroupBy(x => x.Group))
+                        {
+                            <h5 class="mt-4 mb-2 text-muted">@grp.Key</h5>
+
+                            <div class="list-group">
+
+                                @foreach (var item in grp)
+                                {
+                                    var active = _selected?.Id == item.Activity.Id;
+                                    <button type="button" class="list-group-item list-group-item-action @(active ? "active" : "")"
+                                        @onclick="() => Select(item.Activity.Id)">
+                                        <div class="d-flex justify-content-between">
+                                            <div>
+                                                <div class="fw-semibold">@item.Activity.Name</div>
+                                                <div class="small text-muted">@item.Activity.Ort</div>
+                                            </div>
+                                            <div class="text-end small">
+                                                @if (item.Activity.MaxTeilnehmer > 0)
+                                                {
+                                                    <div>@item.Activity.ActiveCount/@item.Activity.MaxTeilnehmer</div>
+                                                }
+                                                else
+                                                {
+                                                    <div>@item.Activity.ActiveCount</div>
+                                                }
+                                                @if (item.Activity.EmpfohleneTeilnehmer > 0)
+                                                {
+                                                    <div class="text-muted">empf. @item.Activity.EmpfohleneTeilnehmer</div>
+                                                }
+                                            </div>
+                                        </div>
+                                    </button>
+                                }
                             </div>
-                        </button>
+                        }
+                    }else{
+                        @foreach (var a in FilteredActivities)
+                        {
+                            var active = _selected?.Id == a.Id;
+                            <button type="button" class="list-group-item list-group-item-action @(active ? "active" : "")"
+                                @onclick="() => Select(a.Id)">
+                                <div class="d-flex justify-content-between">
+                                    <div>
+                                        <div class="fw-semibold">@a.Name</div>
+                                        <div class="small text-muted">@a.Ort</div>
+                                    </div>
+                                    <div class="text-end small">
+                                        @if (a.MaxTeilnehmer > 0)
+                                        {
+                                            <div>@a.ActiveCount/@a.MaxTeilnehmer</div>
+                                        }
+                                        else
+                                        {
+                                            <div>@a.ActiveCount</div>
+                                        }
+                                        @if (a.EmpfohleneTeilnehmer > 0)
+                                        {
+                                            <div class="text-muted">empf. @a.EmpfohleneTeilnehmer</div>
+                                        }
+                                    </div>
+                                </div>
+                            </button>
+                        }
                     }
                 </div>
             </div>
@@ -266,16 +326,48 @@ else
                             <div class="col-md-6">
                                 <label class="form-label">Name</label>
                                 <input class="form-control" @bind="_new.Name" />
-                            </div>
-                            <div class="col-md-6">
                                 <label class="form-label">Ort</label>
                                 <input class="form-control" @bind="_new.Ort" />
                             </div>
                             <div class="col-md-6">
+                                 <label class="form-label mt-3">Gruppen</label>
+
+                                <select class="form-select form-select-sm" multiple size="5"
+                                          @onchange="OnGroupsChanged">
+                                    @foreach (var g in _groups)
+                                    {
+                                        <option value="@g.Id" selected="@(_editGroupIds.Contains(g.Id))">
+                                            @g.Name
+                                        </option>
+                                    }
+                                  </select>
+                                  <div class="d-flex">
+                                  <button class="btn btn-outline-success m-0 p-1" type="button" title="Gruppe hinzufügen"
+                                                  @onclick="OpenAddGroup">
+                                              +
+                                          </button>
+
+                                          <button class="btn btn-remove m-0 p-1" type="button" title="Gruppe löschen"
+                                                  disabled="@(!_editGroupIds.Any())"
+                                                  @onclick="DeleteSelectedGroup">
+                                              −
+                                          </button>
+                                  <div class="form-text">Mehrfachauswahl: Ctrl/⌘ oder antippen.</div>
+                                                          </div>
+                                                          </div>
+                                                          @if (_showAddGroup)
+                                      {
+                                          <div class="input-group position-absolute z-100 bg-light border rounded shadow p-4">
+                                              <input class="form-control" placeholder="Neue Gruppe…" @bind="_newGroupName" />
+                                              <button class="btn btn-success" type="button" @onclick="AddGroup">OK</button>
+                                              <button class="btn btn-outline-secondary" type="button" @onclick="CancelAddGroup">Abbrechen</button>
+                                          </div>
+                                      }
+                            <div class="col-md-6">
                                 <label>Datum</label>
                                 <input type="date" class="form-control" @bind="@_new.Datum" />
                                 <label>Deadline zum Austragen</label>
-                                <input type="date" class="form-control" @bind="@_new.UnregisteredAt" />
+                                <input type="datetime-local" class="form-control" @bind="@_new.UnregisteredAt" />
                             </div>
                             <div class="col-md-6 text-center">
                             @if (!string.IsNullOrWhiteSpace(_previewDataUrl))
@@ -355,9 +447,8 @@ else
     private int? _selectedUserId;
     private int adminExtra;
     private List<User> _userHits = new();
-
+    private List<ActivityGroupVm> _groups = new();
     private CancellationTokenSource? _searchCts;
-
     private int _currentUserId;
     private int oldextra;
     private List<ActivityListItemVm> _activities = new();
@@ -371,38 +462,92 @@ else
     private IBrowserFile? _selectedFile;
     private string? _previewDataUrl;
     private bool _showModal;
+    private bool _showFilter;
     private bool _filterRegistered;
     private bool _filterNext14Days;
+    private int _filterGroupId =-1;
+    private bool _sortByGroups;
+    private List<int> _editGroupIds = new(); // aktuelle Auswahl für die Aktivität
+    private bool _showAddGroup;
+    private string _newGroupName = "";
     private IEnumerable<ActivityListItemVm> FilteredActivities
-{
-    get
     {
-        IEnumerable<ActivityListItemVm> q = _activities;
-
-        if (_filterRegistered)
-            q = q.Where(a => a.IsRegistered);
-
-        if (_filterNext14Days)
+        get
         {
-            var now = DateTime.Now;
-            var until = now.AddDays(14);
-            q = q.Where(a =>  a.Datum <= until);
-        }
+            IEnumerable<ActivityListItemVm> q = _activities;
 
-        return q.OrderByDescending(a => a.Datum);
+            if (_filterGroupId !=-1)
+            q = q.Where(a => a.GroupIds.Contains(_filterGroupId));
+
+            if (_filterRegistered)
+                q = q.Where(a => a.IsRegistered);
+
+            if (_filterNext14Days)
+            {
+                var now = DateTime.Now;
+                var until = now.AddDays(14);
+                q = q.Where(a =>  a.Datum <= until);
+            }
+
+            return q.OrderByDescending(a => a.Datum);
+        }
     }
-}
 
     private ActivityCreateVm _new = new();
 
     protected override async Task OnInitializedAsync()
     {
         await LoadUserId();
+        _groups = await ActivityService.GetGroupsAsync();
         await Reload();
         _new.Datum = DateTime.Today;
         _new.UnregisteredAt = DateTime.Today;
     }
+    private void OpenAddGroup() => _showAddGroup = true;
+    private void CancelAddGroup() { _showAddGroup = false; _newGroupName = ""; }
 
+    private void OnGroupsChanged(ChangeEventArgs e)
+    {
+        // Blazor liefert hier je nach Browser/Framework string oder string[]
+        if (e.Value is string s)
+        {
+            // manchmal kommt "1,2,3" oder "1"
+            _editGroupIds = s.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                             .Select(x => int.TryParse(x, out var v) ? v : (int?)null)
+                             .Where(x => x.HasValue).Select(x => x!.Value).ToList();
+            return;
+        }
+
+        if (e.Value is IEnumerable<string> arr)
+        {
+            _editGroupIds = arr.Select(x => int.TryParse(x, out var v) ? v : (int?)null)
+                               .Where(x => x.HasValue).Select(x => x!.Value).ToList();
+        }
+    }
+
+    private async Task AddGroup()
+    {
+        var (ok, error, id) = await ActivityService.AddGroupAsync(_newGroupName);
+        if (!ok) { Toast.ShowWarning("Achtung",error ?? "Nicht möglich."); return; }
+
+        Toast.ShowSuccess("Erfolg","Gruppe angelegt.");
+        _showAddGroup = false;
+        _newGroupName = "";
+
+        _groups = await ActivityService.GetGroupsAsync();
+    }
+
+    private async Task DeleteSelectedGroup()
+    {
+        if (_editGroupIds is null) return;
+
+        var (ok, error) = await ActivityService.DeleteGroupAsync(_editGroupIds.FirstOrDefault());
+        if (!ok) { Toast.ShowWarning( "Achtung", error ?? "Nicht möglich."); return; }
+
+        Toast.ShowSuccess("Erfolg","Gruppe gelöscht.");
+        _editGroupIds.Clear();
+        _groups = await ActivityService.GetGroupsAsync();
+    }
     private async Task LoadUserId()
     {
         if (AuthenticationStateTask is null) return;
@@ -639,6 +784,7 @@ else
         _previewDataUrl = "";
         _new.UnregisteredAt = DateTime.Today;
         _selectedLoaded =false;
+        _editGroupIds.Clear();
     }
     private async Task Create()
     {
@@ -658,10 +804,14 @@ else
         try
         {
             var date = _new.Datum;
+
             var id = await ActivityService.CreateAsync(_new);
+            var (ok,error) = await ActivityService.SetActivityGroupsAsync(id,_editGroupIds);
+            if(!ok)Toast.ShowError("Erstellen nicht möglich",error??"Unbekannter Fehler");
+            else{
             Toast.ShowSuccess("Erfolg", "Aktivität erstellt.");
             ResetNew();
-            await Select(id);
+            await Select(id);}
         }
         catch (Exception ex)
         {
@@ -691,6 +841,7 @@ else
         {   
             var (ok,error) = await ActivityService.UpdateActivityAsync(_new,_selectedId);
             if (!ok) { Toast.ShowWarning("Fehler beim speichern", error ?? "Nicht möglich.", 10000); return; }
+            (ok,error) = await ActivityService.SetActivityGroupsAsync(_selectedId, _editGroupIds.Any()?_editGroupIds:_new.GroupIds);
             Toast.ShowSuccess("Erfolg", "Aktivität gespeichert.");
             ResetNew();
             _activities = await ActivityService.GetListAsync(_currentUserId);
@@ -723,7 +874,8 @@ else
             EmpfohleneTeilnehmer = _selected.EmpfohleneTeilnehmer,
             Data= _selected.Data,
             FileName= _selected.FileName,
-            ContentType= _selected.ContentType
+            ContentType= _selected.ContentType,
+            GroupIds = _selected.GroupIds
         };
         if (!string.IsNullOrWhiteSpace(_selected.ContentType))
         _previewDataUrl = ToDataUrl(_selected.ContentType, _selected.Data);
