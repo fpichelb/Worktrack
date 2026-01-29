@@ -342,12 +342,12 @@ else
                                     }
                                   </select>
                                   <div class="d-flex">
-                                  <button class="btn btn-outline-success m-0 p-1" type="button" title="Gruppe hinzufügen"
+                                  <button class="btn btn-outline-success m-0 p-1 " style="max-width:40px; max-height:40px;" type="button" title="Gruppe hinzufügen"
                                                   @onclick="OpenAddGroup">
                                               +
                                           </button>
 
-                                          <button class="btn btn-remove m-0 p-1" type="button" title="Gruppe löschen"
+                                          <button class="btn btn-remove m-0 p-1 " style="max-width:40px; max-height:40px;" type="button" title="Gruppe löschen"
                                                   disabled="@(!_editGroupIds.Any())"
                                                   @onclick="DeleteSelectedGroup">
                                               −
