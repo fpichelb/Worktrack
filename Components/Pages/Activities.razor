@@ -83,6 +83,7 @@ else
                                     var active = _selected?.Id == item.Activity.Id;
                                     <button type="button" href="#selectedEvent" class="list-group-item list-group-item-action @(active ? "active" : "")"
                                         @onclick="() => Select(item.Activity.Id)">
+                                        <a class="position-absolute " style="width:100%; height:100%;"href="/activities/#selectedEvent"></a>
                                         <div class="d-flex justify-content-between">
                                             <div>
                                                 <div class="fw-semibold">@item.Activity.Name</div>
