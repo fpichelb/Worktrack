@@ -278,6 +278,25 @@ footer {
   border:none;
   background:none;
 }
+.back-to-top{
+  height: 60px;
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 1050;
+max-width: 80px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(10px);
+  transition: opacity 180ms ease, transform 180ms ease;
+  font-size: 20px;
+}
+
+.back-to-top.show{
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
 
 input,
 textarea,

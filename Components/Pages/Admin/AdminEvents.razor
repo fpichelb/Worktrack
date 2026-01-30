@@ -93,6 +93,7 @@
 
                                 <br />
                                 <button class="btn btn-secondary btn-small" @onclick="() => ShowLargeQR(e.Id)">
+                                <a class="position-absolute " style="margin-top: -13px;margin-left:-35px; width:90px; height:70px;"href="/admin/events#QRCODE"></a>
                                     QR groß
                                 </button>
                             </td>
@@ -104,7 +105,8 @@
                                 <button class="btn secondary" style="margin:0.5rem;" @onclick="() => ToggleActive(e)">
                                     @(e.IsActive ? "Deaktivieren" : "Aktivieren")
                                 </button>
-                                <button class="btn secondary" style="margin:0.5rem;" @onclick="() => SelectEvent(e)">Details</button>
+                                <button class="btn secondary" style="margin:0.5rem;" @onclick="() => SelectEvent(e)">
+                                <a class="position-absolute " style="width:90px; height:40px;"href="/admin/events#selectedEvent"></a>Details</button>
                                 <button class="btn btn-danger" style="margin:0.5rem;" @onclick="() => _confirmDelete=e.Id">Löschen</button>
                                 @if((_confirmDelete==e.Id)){
                                 <div class="position-absolute z-100 bg-light border rounded shadow p-4">
@@ -123,7 +125,7 @@
 </div>
 @if (SelectedEvent != null)
 {
-    <h3 class="mt-4">Timeentries für @SelectedEvent.Name</h3>
+    <h3 class="mt-4" id="selectedEvent">Timeentries für @SelectedEvent.Name</h3>
 
     @if (!EventEntries.Any())
     {
@@ -165,7 +167,7 @@
 <!-- GROßES QR POPUP -->
 @if (LargeQrBase64 != null)
 {
-    <div class="qr-backdrop" @onclick="CloseLargeQR">
+    <div id="QRCODE"class="qr-backdrop" @onclick="CloseLargeQR">
         <div class="qr-popup" @onclick:stopPropagation>
             <h3>QR-Code Event</h3>
             <img src="@LargeQrBase64" style="width:300px; border:2px solid #333; padding:10px;" />

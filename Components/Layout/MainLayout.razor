@@ -1,7 +1,9 @@
 @inherits LayoutComponentBase
-@inject NavigationManager Nav
 @using Microsoft.AspNetCore.Components.Authorization
 @using System.Security.Claims
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@implements IAsyncDisposable
 
 @code{
     ClaimsPrincipal? user;
@@ -15,6 +17,13 @@
         // 🔒 Nicht eingeloggt
     }
 }
+<button class="btn btn-primary back-to-top @( _showBackToTop ? "show" : "" )"
+        type="button"
+        title="Nach oben"
+        aria-label="Nach oben"
+        @onclick="ScrollToTop">
+    ↑
+</button>
     <ToastHost/>
 <div class="layout">
 @if(!_menuOpen){
@@ -86,6 +95,33 @@
     private void ToggleMenu(){_menuOpen = true; _modalview=true;}
     private async Task CloseMenu(){ _menuOpen = false; await Task.Delay(350); _modalview=false;}
 
+
+ private bool _showBackToTop;
+    private DotNetObjectReference<MainLayout>? _objRef;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        _objRef = DotNetObjectReference.Create(this);
+        await JS.InvokeVoidAsync("backToTop.init", _objRef, 300); // 300px Schwelle
+    }
+
+    private async Task ScrollToTop()
+        => await JS.InvokeVoidAsync("backToTop.scrollTop");
+
+    [JSInvokable]
+    public void SetBackToTopVisible(bool visible)
+    {
+        _showBackToTop = visible;
+        InvokeAsync(StateHasChanged);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try { await JS.InvokeVoidAsync("backToTop.dispose"); } catch { }
+        _objRef?.Dispose();
+    }
     string Active(string page)
     {
         var uri = Nav.Uri.ToLower();
