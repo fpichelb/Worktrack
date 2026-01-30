@@ -229,7 +229,7 @@ public async Task<(bool ok, string? error, int? id)> AddGroupAsync(string name, 
     {
         await using var db = await _factory.CreateDbContextAsync(ct);
 
-        var used = await db.ActivityGroups.AnyAsync(a => a.ActivityLinks.Any() , ct);
+        var used = await db.ActivityGroups.AnyAsync(a => a.Id==groupId && a.ActivityLinks.Any() , ct);
         if (used) return (false, "Gruppe wird noch verwendet. Entferne erst die Zuordnung.");
 
         var g = await db.ActivityGroups.FirstOrDefaultAsync(x => x.Id == groupId, ct);
