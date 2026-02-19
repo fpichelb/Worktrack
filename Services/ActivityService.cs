@@ -193,7 +193,7 @@ public class ActivityService
                 GroupIds = a.GroupLinks.Select(gl => gl.GroupId).ToList(),
                 GroupNames = a.GroupLinks.Select(gl => gl.Group.Name).ToList()
             })
-            .Where(a => a.Datum > DateTime.UtcNow)
+            .Where(a => a.Datum > DateTime.UtcNow.AddDays(-1.75))
             .OrderByDescending(a => a.Datum)
             .ToListAsync(ct);
         return list;
