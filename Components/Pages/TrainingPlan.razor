@@ -110,11 +110,12 @@ else
                                     {
                                         var selected = _selected?.OccurrenceKey == item.OccurrenceKey;
                                         var tooltip = GetEventTooltip(item);
+                                        var isCompact = IsCompactAllRoomsEvent(item, dayEvents);
                                         <button class="training-event-card @(selected ? "is-selected" : "")"
-                                                style="@GetEventStyle(item)"
+                                                style="@GetEventStyle(item, dayEvents)"
                                                 title="@tooltip"
                                                 @onclick="() => SelectEvent(item.OccurrenceKey)">
-                                            @if (SelectedRoomId == AllRoomsId)
+                                            @if (SelectedRoomId == AllRoomsId && isCompact)
                                             {
                                                 <span class="visually-hidden">@tooltip</span>
                                             }
@@ -680,7 +681,7 @@ else
         return string.Create(CultureInfo.InvariantCulture, $"top:{top:F1}px");
     }
 
-    private string GetEventStyle(TrainingWeekEventVm item)
+    private string GetEventStyle(TrainingWeekEventVm item, IReadOnlyList<TrainingWeekEventVm> dayEvents)
     {
         var startTime = TimeOnly.FromDateTime(item.StartAt);
         var endTime = TimeOnly.FromDateTime(item.EndAt);
@@ -689,22 +690,69 @@ else
 
         if (SelectedRoomId == AllRoomsId)
         {
-            var roomCount = Math.Max(1, _week.Rooms.Count);
-            var roomIndex = _week.Rooms.FindIndex(x => x.Id == item.TrainingRoomId);
-            if (roomIndex < 0)
-                roomIndex = 0;
+            var conflictRoomIds = GetConflictRoomIds(item, dayEvents);
+            if (conflictRoomIds.Count > 1)
+            {
+                var roomIndex = conflictRoomIds.IndexOf(item.TrainingRoomId);
+                if (roomIndex < 0)
+                    roomIndex = 0;
 
-            var widthPercent = 100d / roomCount;
-            var leftPercent = widthPercent * roomIndex;
+                var widthPercent = 100d / conflictRoomIds.Count;
+                var leftPercent = widthPercent * roomIndex;
 
-            return string.Create(
-                CultureInfo.InvariantCulture,
-                $"--room-color:{item.RoomColor};top:{top:F1}px;height:{height:F1}px;left:calc({leftPercent:F4}% + 0.3rem);width:calc({widthPercent:F4}% - 0.6rem);right:auto;");
+                return string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"--room-color:{item.RoomColor};top:{top:F1}px;height:{height:F1}px;left:calc({leftPercent:F4}% + 0.3rem);width:calc({widthPercent:F4}% - 0.6rem);right:auto;");
+            }
         }
 
         return string.Create(
             CultureInfo.InvariantCulture,
             $"--room-color:{item.RoomColor};top:{top:F1}px;height:{height:F1}px;");
+    }
+
+    private List<int> GetConflictRoomIds(TrainingWeekEventVm item, IReadOnlyList<TrainingWeekEventVm> dayEvents)
+    {
+        var groupedKeys = new HashSet<string>(StringComparer.Ordinal);
+        var queue = new Queue<TrainingWeekEventVm>();
+        queue.Enqueue(item);
+
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+            if (!groupedKeys.Add(current.OccurrenceKey))
+                continue;
+
+            foreach (var candidate in dayEvents)
+            {
+                if (candidate.OccurrenceKey == current.OccurrenceKey)
+                    continue;
+                if (candidate.TrainingRoomId == current.TrainingRoomId)
+                    continue;
+                if (!EventsOverlap(current, candidate))
+                    continue;
+
+                queue.Enqueue(candidate);
+            }
+        }
+
+        return dayEvents
+            .Where(x => groupedKeys.Contains(x.OccurrenceKey))
+            .Select(x => x.TrainingRoomId)
+            .Distinct()
+            .OrderBy(GetRoomSortIndex)
+            .ToList();
+    }
+
+    private bool EventsOverlap(TrainingWeekEventVm a, TrainingWeekEventVm b)
+    {
+        return a.StartAt < b.EndAt && a.EndAt > b.StartAt;
+    }
+
+    private int GetRoomSortIndex(int roomId)
+    {
+        var roomIndex = _week.Rooms.FindIndex(x => x.Id == roomId);
+        return roomIndex < 0 ? int.MaxValue : roomIndex;
     }
 
     private string GetEventTooltip(TrainingWeekEventVm item)
@@ -713,14 +761,22 @@ else
         return $"{item.RoomName}: {item.Title} ({item.StartAt:HH:mm} - {item.EndAt:HH:mm}){recurring}";
     }
 
+    private bool IsCompactAllRoomsEvent(TrainingWeekEventVm item, IReadOnlyList<TrainingWeekEventVm> dayEvents)
+    {
+        if (SelectedRoomId != AllRoomsId)
+            return false;
+
+        return GetConflictRoomIds(item, dayEvents).Count > 1;
+    }
+
     private async Task SelectEvent(string occurrenceKey)
     {
         _busy = true;
         try
         {
             _selected = await TrainingPlannerService.GetOccurrenceDetailAsync(occurrenceKey, _currentUserId);
-            if (_selected is not null)
-                _selectedRoomId = _selected.TrainingRoomId;
+            @* if (_selected is not null)
+                _selectedRoomId = _selected.TrainingRoomId; *@
         }
         catch (Exception ex)
         {

@@ -901,10 +901,11 @@ public class TrainingPlannerService
                             (!excludeSeriesId.HasValue || x.Id != excludeSeriesId.Value))
                 .ToListAsync(ct);
 
-            if (seriesConflict.Any(x => SeriesContainsDate(x, occurrenceDate) && TimesOverlap(vm.StartTime, vm.EndTime, x.StartTime, x.EndTime)))
-                return "Der Raum ist in diesem Zeitraum bereits durch eine Serie belegt.";
 
-            return null;
+            var Series = seriesConflict.FirstOrDefault(x => SeriesContainsDate(x, occurrenceDate) && TimesOverlap(vm.StartTime, vm.EndTime, x.StartTime, x.EndTime));
+            if (Series is null) return null;
+            if (db.TrainingSeriesExceptions.Any(x => x.TrainingSeriesId == Series.Id && x.OccurrenceDate == occurrenceDate)) return null;
+            return "Der Raum ist in diesem Zeitraum bereits durch eine Serie belegt.";
         }
 
         var candidate = new TrainingSeries
