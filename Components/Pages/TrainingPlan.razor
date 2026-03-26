@@ -201,7 +201,7 @@ else
                             <span class="badge text-bg-light">Eventeintrag später: @(_selected.AllowParticipantEventSubmission ? "vorbereitet" : "nein")</span>
                         </div>
 
-                        <div class="mt-4 d-flex flex-wrap gap-2">
+                        @* <div class="mt-4 d-flex flex-wrap gap-2">
                             @if (_selected.AllowMemberRegistration)
                             {
                                 @if (_selected.IsCurrentUserRegistered)
@@ -213,7 +213,7 @@ else
                                     <button class="btn btn-primary" disabled="@_busy" @onclick="RegisterMe">Anmelden</button>
                                 }
                             }
-                        </div>
+                        </div> *@
 
                         @if (_selected.IsRecurring)
                         {
