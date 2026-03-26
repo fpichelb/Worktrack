@@ -56,7 +56,8 @@ builder.Services.AddScoped<TimeEntryService>()
                 .AddScoped<ToastService>()
                 .AddScoped<EventService>()
                 .AddScoped<NewsService>()
-                .AddScoped<ActivityService>();
+                .AddScoped<ActivityService>()
+                .AddScoped<TrainingPlannerService>();
 
 builder.Services.AddHostedService<AutoCheckoutHostedService>()
                 .AddSingleton<IBlobStorage, FileSystemBlobStorage>();

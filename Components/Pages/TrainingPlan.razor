@@ -1,0 +1,1100 @@
+@page "/training-plan"
+@using System.Globalization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Http.HttpResults
+@using Worktrack.ViewModels
+@attribute [Authorize]
+
+@inject TrainingPlannerService TrainingPlannerService
+
+<PageTitle>Trainingsplan</PageTitle>
+
+<h3 class="card">Trainingsplan</h3>
+
+@if (_loading)
+{
+    <div class="d-flex align-items-center gap-2">
+        <div class="spinner-border" role="status" aria-hidden="true"></div>
+        <span class="text-muted">Lade Trainingsplan...</span>
+    </div>
+}
+else if (!string.IsNullOrWhiteSpace(_error))
+{
+    <div class="alert alert-danger">@_error</div>
+}
+else
+{
+    <div class="row g-3">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-2">
+                    <div>
+                        <div class="small text-muted">Woche</div>
+                        <div class="fs-5 fw-semibold">
+                            @_week.WeekStart.ToString("dd.MM.yyyy") - @_week.WeekStart.AddDays(6).ToString("dd.MM.yyyy")
+                        </div>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2">
+                        <button class="btn btn-outline-secondary" @onclick="PreviousWeek">Vorherige Woche</button>
+                        <button class="btn btn-outline-secondary" @onclick="CurrentWeek">Heute</button>
+                        <button class="btn btn-primary" @onclick="NextWeek">Nächste Woche</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-xxl-8">
+            @if (_week.Rooms.Count == 0)
+            {
+                <div class="alert alert-info mb-0">
+                    Noch keine Trainingsräume vorhanden. Admins können unten Räume anlegen.
+                </div>
+            }
+            else
+            {
+                <div class="training-room-tabs">
+                    <button class="training-room-tab @(SelectedRoomId == AllRoomsId ? "is-active" : "")"
+                            style="background:@(SelectedRoomId == AllRoomsId ? "#0f172a" : "#e2e8f0")"
+                            @onclick="() => SelectRoom(AllRoomsId)">
+                        Alle Räume
+                    </button>
+                    @foreach (var room in _week.Rooms)
+                    {
+                        var active = room.Id == SelectedRoomId;
+                        <button class="training-room-tab @(active ? "is-active" : "")"
+                                style="background:@(active ? room.Color : "#e2e8f0")"
+                                @onclick="() => SelectRoom(room.Id)">
+                            @room.Name
+                        </button>
+                    }
+                </div>
+
+                <div class="training-calendar-shell">
+                    <div class="training-calendar-header">
+                        <div class="training-calendar-time-header small text-muted">Zeit</div>
+                        @foreach (var day in _week.Days)
+                        {
+                            <div class="training-calendar-day">
+                                <div class="fw-semibold">@day.ToString("dddd")</div>
+                                <div class="small text-muted">@day.ToString("dd.MM.")</div>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="training-calendar-body" style="@GetCalendarBodyStyle()">
+                        <div class="training-time-axis">
+                            @foreach (var marker in TimeMarkers)
+                            {
+                                <div class="training-time-marker" style="@GetMarkerStyle(marker)">
+                                    <span>@marker.ToString("HH:mm")</span>
+                                </div>
+                            }
+                        </div>
+
+                        @foreach (var day in _week.Days)
+                        {
+                            var dayEvents = GetSelectedRoomDayEvents(day).ToList();
+                            <div class="training-day-lane">
+                                @foreach (var marker in TimeMarkers.Skip(1))
+                                {
+                                    <div class="training-day-line" style="@GetMarkerStyle(marker)"></div>
+                                }
+
+                                @if (dayEvents.Count == 0)
+                                {
+                                    <div class="training-empty p-2">Kein Termin</div>
+                                }
+                                else
+                                {
+                                    @foreach (var item in dayEvents)
+                                    {
+                                        var selected = _selected?.OccurrenceKey == item.OccurrenceKey;
+                                        var tooltip = GetEventTooltip(item);
+                                        <button class="training-event-card @(selected ? "is-selected" : "")"
+                                                style="@GetEventStyle(item)"
+                                                title="@tooltip"
+                                                @onclick="() => SelectEvent(item.OccurrenceKey)">
+                                            @if (SelectedRoomId == AllRoomsId)
+                                            {
+                                                <span class="visually-hidden">@tooltip</span>
+                                            }
+                                            else
+                                            {
+                                                <div class="fw-semibold">@item.Title</div>
+                                                <div class="small text-muted">
+                                                    @item.StartAt.ToString("HH:mm") - @item.EndAt.ToString("HH:mm")
+                                                </div>
+                                                <div class="small mt-1">
+                                                    @if (item.MaxParticipants > 0)
+                                                    {
+                                                        <span>@item.ParticipantCount / @item.MaxParticipants Teiln.</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span>@item.ParticipantCount Teiln.</span>
+                                                    }
+                                                </div>
+                                                @if (item.IsRecurring)
+                                                {
+                                                    <div class="small text-muted mt-1">Serie</div>
+                                                }
+                                            }
+                                        </button>
+                                    }
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+
+        <div class="col-12 col-xxl-4">
+            @if (_selected is null)
+            {
+                <div class="alert alert-info mb-0">Wähle einen Termin aus dem Wochenraster aus.</div>
+            }
+            else
+            {
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start gap-2">
+                            <div>
+                                <h4 class="mb-1">@_selected.Title</h4>
+                                <div class="text-muted">@_selected.RoomName</div>
+                            </div>
+                            <span class="training-meta-chip">@_selected.StartAt.ToString("dd.MM. HH:mm")</span>
+                        </div>
+
+                        <div class="mt-3">
+                            <div class="small text-muted">Zeit</div>
+                            <div>@_selected.StartAt.ToString("dddd, dd.MM.yyyy HH:mm") - @_selected.EndAt.ToString("HH:mm")</div>
+                        </div>
+
+                        <div class="mt-3">
+                            <div class="small text-muted">Beschreibung</div>
+                            <div>@(string.IsNullOrWhiteSpace(_selected.Description) ? "Keine Zusatzinfos." : _selected.Description)</div>
+                        </div>
+
+                        <div class="mt-3 d-flex flex-wrap gap-2">
+                            <span class="training-meta-chip">@_selected.ParticipantCount Teilnehmer</span>
+                            @if (_selected.MaxParticipants > 0)
+                            {
+                                <span class="training-meta-chip">max. @_selected.MaxParticipants</span>
+                            }
+                            @if (_selected.RecommendedParticipants > 0)
+                            {
+                                <span class="training-meta-chip">empf. @_selected.RecommendedParticipants</span>
+                            }
+                            @if (_selected.IsRecurring)
+                            {
+                                <span class="training-meta-chip">wiederkehrend</span>
+                            }
+                        </div>
+
+                        <div class="mt-3 d-flex flex-wrap gap-2">
+                            <span class="badge text-bg-light">Mitglieder: @(_selected.AllowMemberRegistration ? "offen" : "gesperrt")</span>
+                            <span class="badge text-bg-light">Gruppen später: @(_selected.AllowGroupRegistration ? "vorbereitet" : "nein")</span>
+                            <span class="badge text-bg-light">Eventeintrag später: @(_selected.AllowParticipantEventSubmission ? "vorbereitet" : "nein")</span>
+                        </div>
+
+                        <div class="mt-4 d-flex flex-wrap gap-2">
+                            @if (_selected.AllowMemberRegistration)
+                            {
+                                @if (_selected.IsCurrentUserRegistered)
+                                {
+                                    <button class="btn btn-remove" disabled="@_busy" @onclick="UnregisterMe">Abmelden</button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-primary" disabled="@_busy" @onclick="RegisterMe">Anmelden</button>
+                                }
+                            }
+                        </div>
+
+                        @if (_selected.IsRecurring)
+                        {
+                            <div class="small text-muted mt-2">
+                                Serie: @_selected.RecurrencePattern
+                                @if (_selected.RecurrenceUntil.HasValue)
+                                {
+                                    <span> bis @_selected.RecurrenceUntil.Value.ToString("dd.MM.yyyy")</span>
+                                }
+                            </div>
+                        }
+
+                        <AuthorizeView Roles="admin,actManager">
+                            <div class="mt-3 d-flex flex-wrap gap-2">
+                                <button class="btn btn-outline-danger" disabled="@_busy" @onclick="CancelSelectedOccurrence">
+                                    Diesen Termin entfernen
+                                </button>
+                                @if (_selected.SeriesId.HasValue)
+                                {
+                                    <button class="btn btn-outline-warning" disabled="@_busy" @onclick="StopSelectedSeries">
+                                        Serie ab hier beenden
+                                    </button>
+                                }
+                            </div>
+                        </AuthorizeView>
+
+                        <hr />
+
+                        <h5 class="mb-2">Teilnehmerliste</h5>
+                        @if (_selected.Participants.Count == 0)
+                        {
+                            <div class="text-muted">Noch niemand eingetragen.</div>
+                        }
+                        else
+                        {
+                            <div class="list-group">
+                                @foreach (var participant in _selected.Participants)
+                                {
+                                    <div class="list-group-item d-flex justify-content-between align-items-start gap-2">
+                                        <div>
+                                            <div class="fw-semibold">
+                                                @participant.DisplayName
+                                                @if (participant.ParticipantCount > 1)
+                                                {
+                                                    <span class="text-muted">x @participant.ParticipantCount</span>
+                                                }
+                                            </div>
+                                            <div class="small text-muted">
+                                                @participant.ParticipantType
+                                                @if (!string.IsNullOrWhiteSpace(participant.SourceGroupName))
+                                                {
+                                                    <span>- Gruppe: @participant.SourceGroupName</span>
+                                                }
+                                            </div>
+                                            @if (!string.IsNullOrWhiteSpace(participant.Notes))
+                                            {
+                                                <div class="small">@participant.Notes</div>
+                                            }
+                                        </div>
+                                        <div class="text-end">
+                                            <div class="small text-muted">@participant.RegisteredAt.ToLocalTime().ToString("dd.MM. HH:mm")</div>
+                                            <AuthorizeView Roles="admin,actManager">
+                                                <button class="btn btn-sm btn-outline-danger mt-2" @onclick="() => RemoveParticipant(participant.Id)">Entfernen</button>
+                                            </AuthorizeView>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+
+        
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="row g-4">
+                            <div class="col-12 col-xl-4">
+                                <div class="row g-2">
+                                <div class="col-md-11 ">
+                                <h5>Trainingsräume</h5>
+                                </div>
+                                <div class="col-md-1">
+                                @if(!_showRooms){
+                                <button class="btn btn-primary" @onclick="()=>_showRooms = !_showRooms">v</button>
+                                }else{
+                                <button class="btn btn-primary" @onclick="()=>_showRooms = !_showRooms">^</button>
+                                }
+                                </div>
+                                </div>
+                                @if(_showRooms){
+                                <AuthorizeView Roles="admin,actManager,trainer,betreuer">
+                                <div class="row g-2">
+                                    <div class="col-12">
+                                        <label class="form-label">Neuer Raum</label>
+                                        <input class="form-control" @bind="_newRoomName" />
+                                    </div>
+                                    <label class="form-label">Farbe</label>
+                                    <div class="col-md-6">  
+                                        <input class="form-control-color p-1" type="color" @bind="_newRoomColor" />
+                                    </div>
+                                    <div class="col-md-6 d-flex align-items-end">
+                                        <button class="btn btn-outline-secondary w-100" @onclick="AddRoom" disabled="@_busy">Raum anlegen</button>
+                                    </div>
+                                </div>
+                                </AuthorizeView> 
+                                <div class="mt-3">
+                                    @if (_week.Rooms.Count == 0)
+                                    {
+                                        <div class="text-muted">Noch keine Räume.</div>
+                                    }
+                                    else
+                                    {
+                                        <div class="list-group">
+                                            @foreach (var room in _week.Rooms)
+                                            {
+                                                
+                                                <div class="list-group-item d-flex align-items-center gap-2 multi-row-2">
+                                                    <span class="rounded-circle col-1" style="width:14px;height:14px;background:@room.Color;"></span>
+                                                    <span class="col-11">@room.Name</span>
+                                                    <AuthorizeView Roles="admin">
+                                                    <button class="btn-remove ms-3 p-auto" @onclick="()=>DeleteRoom(room)">✕</button>
+                                                    </AuthorizeView>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                                }
+                            </div>
+                            <AuthorizeView Roles="admin,actManager,trainer,betreuer">
+                            <div class="col-12 col-xl-8">
+                                <h5>Termin anlegen</h5>
+
+                                <div class="row g-2">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Titel</label>
+                                        <input class="form-control" @bind="_editor.Title" />
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label">Raum</label>
+                                        <select class="form-select" @bind="_editor.TrainingRoomId">
+                                            <option value="0">Raum wählen</option>
+                                            @foreach (var room in _week.Rooms)
+                                            {
+                                                <option value="@room.Id">@room.Name</option>
+                                            }
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-4">
+                                        <label class="form-label">Datum</label>
+                                        <input class="form-control" type="date" @bind="_editor.Date" />
+                                    </div>
+
+                                    <div class="col-md-4">
+                                        <label class="form-label">Start</label>
+                                        <input class="form-control" type="time" @bind="_editor.StartTime" />
+                                    </div>
+
+                                    <div class="col-md-4">
+                                        <label class="form-label">Ende</label>
+                                        <input class="form-control" type="time" @bind="_editor.EndTime" />
+                                    </div>
+
+                                    <div class="col-12">
+                                        <label class="form-label">Beschreibung</label>
+                                        <textarea class="form-control" rows="3" @bind="_editor.Description"></textarea>
+                                    </div>
+
+                                    @* <div class="col-md-3">
+                                        <label class="form-label">Max. Teilnehmer</label>
+                                        <input class="form-control" type="number" min="0" @bind="_editor.MaxParticipants" />
+                                    </div>
+
+                                    <div class="col-md-3">
+                                        <label class="form-label">Empfohlen</label>
+                                        <input class="form-control" type="number" min="0" @bind="_editor.RecommendedParticipants" />
+                                    </div>
+
+                                    <div class="col-md-6 d-flex flex-column justify-content-end">
+                                        <label class="form-check">
+                                            <input class="form-check-input" type="checkbox" @bind="_editor.AllowMemberRegistration" />
+                                            <span class="form-check-label">Mitglieder dürfen sich anmelden</span>
+                                        </label>
+                                        <label class="form-check">
+                                            <input class="form-check-input" type="checkbox" @bind="_editor.AllowGroupRegistration" />
+                                            <span class="form-check-label">Spätere Gruppenanmeldung vorbereiten</span>
+                                        </label>
+                                        <label class="form-check">
+                                            <input class="form-check-input" type="checkbox" @bind="_editor.AllowParticipantEventSubmission" />
+                                            <span class="form-check-label">Spätere Eventeinträge durch Teilnehmer vorbereiten</span>
+                                        </label>
+                                    </div> *@
+
+                                    <div class="col-12">
+                                        <label class="form-check">
+                                            <input class="form-check-input" type="checkbox" @bind="_editor.IsRecurring" />
+                                            <span class="form-check-label">Wiederkehrender Termin</span>
+                                        </label>
+                                    </div>
+
+                                    @if (_editor.IsRecurring)
+                                    {
+                                        <div class="col-md-4">
+                                            <label class="form-label">Rhythmus</label>
+                                            <select class="form-select" @bind="_editor.RecurrencePattern">
+                                                <option value="weekly">Wöchentlich</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="col-md-4">
+                                            <label class="form-label">Alle X Wochen</label>
+                                            <input class="form-control" type="number" min="1" @bind="_editor.RecurrenceInterval" />
+                                        </div>
+
+                                        <div class="col-md-4">
+                                            <label class="form-label">Bis Datum</label>
+                                            <input class="form-control" type="date" @bind="_editor.RecurrenceUntil" />
+                                        </div>
+                                    }
+
+                                    <div class="col-12 d-flex flex-wrap gap-2">
+                                        <button class="btn btn-success" @onclick="CreateEvent" disabled="@_busy">Neu Anlegen</button>
+                                        @if (_selected is not null)
+                                        {
+                                            <button class="btn btn-outline-secondary" @onclick="LoadSelectedIntoEditor">Bearbeiten</button>
+                                        }
+                                        @if (_selected?.SeriesId.HasValue == true)
+                                        {
+                                            <button class="btn btn-outline-warning" @onclick="LoadSelectedSeriesFromHereIntoEditor">Serie ab hier verändern</button>
+                                        }
+                                        @if (IsEditing)
+                                        {
+                                            <button class="btn btn-outline-primary" @onclick="UpdateEvent" disabled="@_busy">Speichern</button>
+                                            <button class="btn btn-outline-dark" @onclick="ResetEditor">Bearbeitung verwerfen</button>
+                                        }
+                                    </div>
+                                </div>
+
+                                @if (_selected is not null)
+                                {
+                                    <hr />
+
+                                    @* <h5>Teilnehmer hinzufügen</h5>
+                                    <div class="row g-2">
+                                        <div class="col-12">
+                                            <label class="form-label">Benutzer suchen</label>
+                                            <input class="form-control" value="@_userQuery" @oninput="OnUserQueryChanged" placeholder="Mindestens 2 Zeichen..." />
+                                        </div>
+
+                                        <div class="col-12">
+                                            <select class="form-select" @bind="_participantEditor.UserId" disabled="@(_userHits.Count == 0)">
+                                                <option value="">Benutzer optional auswählen</option>
+                                                @foreach (var user in _userHits)
+                                                {
+                                                    <option value="@user.Id">@user.Name</option>
+                                                }
+                                            </select>
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <label class="form-label">Freitext-Name</label>
+                                            <input class="form-control" @bind="_participantEditor.DisplayName" placeholder="z.B. Gast oder Trainerteam" />
+                                        </div>
+
+                                        <div class="col-md-3">
+                                            <label class="form-label">Typ</label>
+                                            <select class="form-select" @bind="_participantEditor.ParticipantType">
+                                                <option value="member">Mitglied</option>
+                                                <option value="guest">Gast</option>
+                                                <option value="group">Gruppe</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="col-md-3">
+                                            <label class="form-label">Anzahl</label>
+                                            <input class="form-control" type="number" min="1" @bind="_participantEditor.ParticipantCount" />
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <label class="form-label">Gruppe</label>
+                                            <input class="form-control" @bind="_participantEditor.SourceGroupName" placeholder="Vorbereitung für spätere Gruppenanmeldung" />
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <label class="form-label">Notiz</label>
+                                            <input class="form-control" @bind="_participantEditor.Notes" />
+                                        </div>
+
+                                        <div class="col-12">
+                                            <button class="btn btn-outline-primary" disabled="@_busy" @onclick="AddParticipant">Eintragen</button>
+                                        </div>
+                                    </div> *@
+                                }
+                            </div>
+                        </div>
+                        </AuthorizeView>
+                    </div>
+                </div>
+            </div>
+        </AuthorizeView>
+    </div>
+}
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    private bool _loading = true;
+    private bool _busy;
+    private bool _showRooms=false;
+    private string? _error;
+    private int _currentUserId;
+    private TrainingWeekVm _week = new();
+    private TrainingEventDetailVm? _selected;
+    private DateTime _currentWeekStart = StartOfWeek(DateTime.Today);
+    private TrainingEventEditVm _editor = new();
+    private int? _editingEventId;
+    private int? _editingSeriesId;
+    private DateTime? _editingOccurrenceDate;
+    private bool _editSeriesFromOccurrence;
+    private string _newRoomName = "";
+    private string _newRoomColor = "#2563eb";
+    private string _userQuery = "";
+    private List<User> _userHits = new();
+    private CancellationTokenSource? _searchCts;
+    private TrainingParticipantEditVm _participantEditor = new();
+    private const int AllRoomsId = 0;
+    private int? _selectedRoomId;
+    private const int HourHeightPx = 88;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCurrentUserAsync();
+        _editor.Date = DateTime.Today;
+        await LoadWeekAsync();
+    }
+
+    private async Task LoadCurrentUserAsync()
+    {
+        if (AuthenticationStateTask is null)
+            return;
+
+        var auth = await AuthenticationStateTask;
+        var userIdStr = auth.User.FindFirst("UserId")?.Value;
+        _currentUserId = int.TryParse(userIdStr, out var parsed) ? parsed : 0;
+    }
+
+    private async Task LoadWeekAsync()
+    {
+        _loading = true;
+        _error = null;
+
+        try
+        {
+            _week = await TrainingPlannerService.GetWeekAsync(_currentWeekStart, _currentUserId);
+            EnsureSelectedRoom();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private int SelectedRoomId => _selectedRoomId ?? AllRoomsId;
+
+    private TimeOnly CalendarStart
+    {
+        get
+        {
+            var weekEvents = _week.Events.ToList();
+            if (weekEvents.Count == 0)
+                return new TimeOnly(17, 0);
+
+            var minStart = weekEvents.Min(x => TimeOnly.FromDateTime(x.StartAt));
+            return new TimeOnly(minStart.Hour, 0);
+        }
+    }
+
+    private TimeOnly CalendarEnd
+    {
+        get
+        {
+            var weekEvents = _week.Events.ToList();
+            if (weekEvents.Count == 0)
+                return new TimeOnly(21, 0);
+
+            var maxEnd = weekEvents.Max(x => TimeOnly.FromDateTime(x.EndAt));
+            var roundedEnd = new TimeOnly(maxEnd.Hour, 0);
+            if (maxEnd.Minute > 0 || maxEnd.Second > 0)
+                roundedEnd = roundedEnd.AddHours(1);
+            return roundedEnd;
+        }
+    }
+
+    private double CalendarHeightPx
+    {
+        get
+        {
+            var minutes = Math.Max(240, (CalendarEnd.ToTimeSpan() - CalendarStart.ToTimeSpan()).TotalMinutes);
+            return minutes / 60d * HourHeightPx;
+        }
+    }
+
+    private IEnumerable<TimeOnly> TimeMarkers
+    {
+        get
+        {
+            for (var current = CalendarStart; current <= CalendarEnd; current = current.AddHours(1))
+                yield return current;
+        }
+    }
+
+    private IEnumerable<TrainingWeekEventVm> SelectedRoomEvents =>
+        _week.Events
+            .Where(x => SelectedRoomId == AllRoomsId || x.TrainingRoomId == SelectedRoomId)
+            .OrderBy(x => x.StartAt);
+
+    private bool IsEditing => _editingEventId.HasValue || _editingSeriesId.HasValue;
+
+    private IEnumerable<TrainingWeekEventVm> GetSelectedRoomDayEvents(DateTime day)
+    {
+        return SelectedRoomEvents
+            .Where(x => x.StartAt.Date == day.Date)
+            .OrderBy(x => x.StartAt);
+    }
+
+    private void SelectRoom(int roomId)
+    {
+        _selectedRoomId = roomId;
+    }
+
+    private void EnsureSelectedRoom()
+    {
+        if (!_selectedRoomId.HasValue)
+        {
+            _selectedRoomId = AllRoomsId;
+            return;
+        }
+
+        if (_selectedRoomId != AllRoomsId && !_week.Rooms.Any(x => x.Id == _selectedRoomId.Value))
+            _selectedRoomId = AllRoomsId;
+    }
+
+    private double GetMarkerTopPx(TimeOnly marker)
+    {
+        return (marker.ToTimeSpan() - CalendarStart.ToTimeSpan()).TotalMinutes / 60d * HourHeightPx;
+    }
+
+    private string GetCalendarBodyStyle()
+    {
+        return string.Create(CultureInfo.InvariantCulture, $"--lane-height:{CalendarHeightPx:F1}px");
+    }
+
+    private string GetMarkerStyle(TimeOnly marker)
+    {
+        var top = GetMarkerTopPx(marker);
+        return string.Create(CultureInfo.InvariantCulture, $"top:{top:F1}px");
+    }
+
+    private string GetEventStyle(TrainingWeekEventVm item)
+    {
+        var startTime = TimeOnly.FromDateTime(item.StartAt);
+        var endTime = TimeOnly.FromDateTime(item.EndAt);
+        var top = (startTime.ToTimeSpan() - CalendarStart.ToTimeSpan()).TotalMinutes / 60d * HourHeightPx;
+        var height = Math.Max(44, (endTime.ToTimeSpan() - startTime.ToTimeSpan()).TotalMinutes / 60d * HourHeightPx);
+
+        if (SelectedRoomId == AllRoomsId)
+        {
+            var roomCount = Math.Max(1, _week.Rooms.Count);
+            var roomIndex = _week.Rooms.FindIndex(x => x.Id == item.TrainingRoomId);
+            if (roomIndex < 0)
+                roomIndex = 0;
+
+            var widthPercent = 100d / roomCount;
+            var leftPercent = widthPercent * roomIndex;
+
+            return string.Create(
+                CultureInfo.InvariantCulture,
+                $"--room-color:{item.RoomColor};top:{top:F1}px;height:{height:F1}px;left:calc({leftPercent:F4}% + 0.3rem);width:calc({widthPercent:F4}% - 0.6rem);right:auto;");
+        }
+
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"--room-color:{item.RoomColor};top:{top:F1}px;height:{height:F1}px;");
+    }
+
+    private string GetEventTooltip(TrainingWeekEventVm item)
+    {
+        var recurring = item.IsRecurring ? " | Serie" : "";
+        return $"{item.RoomName}: {item.Title} ({item.StartAt:HH:mm} - {item.EndAt:HH:mm}){recurring}";
+    }
+
+    private async Task SelectEvent(string occurrenceKey)
+    {
+        _busy = true;
+        try
+        {
+            _selected = await TrainingPlannerService.GetOccurrenceDetailAsync(occurrenceKey, _currentUserId);
+            if (_selected is not null)
+                _selectedRoomId = _selected.TrainingRoomId;
+        }
+        catch (Exception ex)
+        {
+            Toasts.ShowError("Fehler", ex.Message);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task RegisterMe()
+    {
+        if (_selected is null)
+            return;
+
+        _busy = true;
+        try
+        {
+            var (ok, error) = await TrainingPlannerService.RegisterCurrentUserAsync(_selected.OccurrenceKey, _currentUserId);
+            if (!ok)
+            {
+                Toasts.ShowWarning("Achtung", error ?? "Nicht möglich.");
+                return;
+            }
+
+            Toasts.ShowSuccess("Erfolg", "Du bist eingetragen.");
+            await ReloadSelectionAndWeekAsync(_selected.OccurrenceKey);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task UnregisterMe()
+    {
+        if (_selected is null)
+            return;
+
+        _busy = true;
+        try
+        {
+            var (ok, error) = await TrainingPlannerService.UnregisterCurrentUserAsync(_selected.OccurrenceKey, _currentUserId);
+            if (!ok)
+            {
+                Toasts.ShowWarning("Achtung", error ?? "Nicht möglich.");
+                return;
+            }
+
+            Toasts.ShowInfo("Abmeldung", "Du wurdest ausgetragen.");
+            await ReloadSelectionAndWeekAsync(_selected.OccurrenceKey);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task AddRoom()
+    {
+        var (ok, error, id) = await TrainingPlannerService.AddRoomAsync(_newRoomName, _newRoomColor);
+        if (!ok)
+        {
+            Toasts.ShowWarning("Achtung", error ?? "Nicht möglich.");
+            return;
+        }
+
+        _newRoomName = "";
+        _newRoomColor = "#2563eb";
+        Toasts.ShowSuccess("Erfolg", $"Raum #{id} angelegt.");
+        await LoadWeekAsync();
+    }
+
+    private async Task CreateEvent()
+    {
+        _busy = true;
+        try
+        {
+            var (ok, error, occurrenceKey) = await TrainingPlannerService.CreateEventsAsync(_editor);
+            if (!ok)
+            {
+                Toasts.ShowWarning("Achtung", error ?? "Nicht möglich.");
+                return;
+            }
+
+            Toasts.ShowSuccess("Erfolg", _editor.IsRecurring ? "Terminserie angelegt." : "Termin angelegt.");
+            ResetEditor();
+            await LoadWeekAsync();
+
+            if (!string.IsNullOrWhiteSpace(occurrenceKey))
+                await SelectEvent(occurrenceKey);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void LoadSelectedIntoEditor()
+    {
+        if (_selected is null)
+            return;
+
+        _editingEventId = _selected.IsRecurring ? null : _selected.EventId;
+        _editingSeriesId = _selected.SeriesId;
+        _editingOccurrenceDate = _selected.StartAt;
+        _editSeriesFromOccurrence = false;
+        _editor = new TrainingEventEditVm
+        {
+            Title = _selected.Title,
+            Description = _selected.Description,
+            TrainingRoomId = _selected.TrainingRoomId,
+            Date = _selected.StartAt.Date,
+            StartTime = TimeOnly.FromDateTime(_selected.StartAt),
+            EndTime = TimeOnly.FromDateTime(_selected.EndAt),
+            MaxParticipants = _selected.MaxParticipants,
+            RecommendedParticipants = _selected.RecommendedParticipants,
+            AllowMemberRegistration = _selected.AllowMemberRegistration,
+            AllowGroupRegistration = _selected.AllowGroupRegistration,
+            AllowParticipantEventSubmission = _selected.AllowParticipantEventSubmission,
+            IsRecurring = _selected.IsRecurring,
+            RecurrencePattern = _selected.IsRecurring ? _selected.RecurrencePattern : "weekly",
+            RecurrenceInterval = 1,
+            RecurrenceUntil = _selected.RecurrenceUntil
+        };
+
+        var message = _selected.IsRecurring ? "Serie in den Editor geladen." : "Ausgewählten Termin in den Editor geladen.";
+        Toasts.ShowInfo("Editor", message);
+    }
+
+    private void LoadSelectedSeriesFromHereIntoEditor()
+    {
+        if (_selected?.SeriesId is null)
+            return;
+
+        LoadSelectedIntoEditor();
+        _editSeriesFromOccurrence = true;
+        _editingSeriesId = _selected.SeriesId.Value;
+        _editingOccurrenceDate = _selected.StartAt;
+        _editor.IsRecurring = true;
+        _editor.Date = _selected.StartAt.Date;
+
+        Toasts.ShowInfo("Editor", "Serie ab diesem Termin zur Bearbeitung geladen.");
+    }
+
+    private async Task UpdateEvent()
+    {
+        if (!IsEditing)
+            return;
+
+        _busy = true;
+        try
+        {
+            bool ok;
+            string? error;
+            string? occurrenceKey;
+
+            if (_editingEventId.HasValue)
+            {
+                (ok, error) = await TrainingPlannerService.UpdateEventAsync(_editingEventId.Value, _editor);
+                occurrenceKey = $"single:{_editingEventId.Value}";
+            }
+            else if (_editingSeriesId.HasValue && _editSeriesFromOccurrence && _editingOccurrenceDate.HasValue)
+            {
+                (ok, error, occurrenceKey) = await TrainingPlannerService.SplitSeriesFromOccurrenceAsync(_editingSeriesId.Value, _editingOccurrenceDate.Value, _editor);
+            }
+            else if (_editingSeriesId.HasValue)
+            {
+                (ok, error, _) = await TrainingPlannerService.UpdateSeriesAsync(_editingSeriesId.Value, _editor);
+                occurrenceKey = _selected?.OccurrenceKey;
+            }
+            else
+            {
+                return;
+            }
+
+            if (!ok)
+            {
+                Toasts.ShowWarning("Achtung", error ?? "Nicht möglich.");
+                return;
+            }
+
+            var message = _editingSeriesId.HasValue
+                ? (_editSeriesFromOccurrence ? "Serie ab hier aktualisiert." : "Serie aktualisiert.")
+                : "Termin aktualisiert.";
+
+            Toasts.ShowSuccess("Erfolg", message);
+            ResetEditor();
+
+            if (!string.IsNullOrWhiteSpace(occurrenceKey))
+                await ReloadSelectionAndWeekAsync(occurrenceKey);
+            else
+                await LoadWeekAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task OnUserQueryChanged(ChangeEventArgs e)
+    {
+        _userQuery = e.Value?.ToString() ?? "";
+        _userHits.Clear();
+        _participantEditor.UserId = null;
+
+        if (_userQuery.Trim().Length < 2)
+            return;
+
+        _searchCts?.Cancel();
+        _searchCts = new CancellationTokenSource();
+        var ct = _searchCts.Token;
+
+        try
+        {
+            await Task.Delay(250, ct);
+            _userHits = await UService.GetBestUsers(_userQuery.Trim(), 10, ct);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private async Task AddParticipant()
+    {
+        if (_selected is null)
+            return;
+
+        _busy = true;
+        try
+        {
+            var (ok, error) = await TrainingPlannerService.AddParticipantAsync(_selected.OccurrenceKey, _participantEditor);
+            if (!ok)
+            {
+                Toasts.ShowWarning("Achtung", error ?? "Nicht möglich.");
+                return;
+            }
+
+            _participantEditor = new TrainingParticipantEditVm();
+            _userHits.Clear();
+            _userQuery = "";
+            Toasts.ShowSuccess("Erfolg", "Teilnehmer eingetragen.");
+            await ReloadSelectionAndWeekAsync(_selected.OccurrenceKey);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task RemoveParticipant(int participantId)
+    {
+        _busy = true;
+        try
+        {
+            var (ok, error) = await TrainingPlannerService.RemoveParticipantAsync(participantId);
+            if (!ok)
+            {
+                Toasts.ShowWarning("Achtung", error ?? "Nicht möglich.");
+                return;
+            }
+
+            Toasts.ShowInfo("Teilnehmer", "Eintrag entfernt.");
+            if (_selected is not null)
+                await ReloadSelectionAndWeekAsync(_selected.OccurrenceKey);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task CancelSelectedOccurrence()
+    {
+        if (_selected is null)
+            return;
+
+        _busy = true;
+        try
+        {
+            var roomId = _selected.TrainingRoomId;
+            var (ok, error) = await TrainingPlannerService.CancelOccurrenceAsync(_selected.OccurrenceKey);
+            if (!ok)
+            {
+                Toasts.ShowWarning("Achtung", error ?? "Nicht möglich.");
+                return;
+            }
+
+            Toasts.ShowInfo("Termin", "Termin entfernt.");
+            _selected = null;
+            await LoadWeekAsync();
+            _selectedRoomId = roomId;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task StopSelectedSeries()
+    {
+        if (_selected?.SeriesId is null)
+            return;
+
+        _busy = true;
+        try
+        {
+            var roomId = _selected.TrainingRoomId;
+            var (ok, error) = await TrainingPlannerService.StopSeriesAsync(_selected.SeriesId.Value, _selected.StartAt);
+            if (!ok)
+            {
+                Toasts.ShowWarning("Achtung", error ?? "Nicht möglich.");
+                return;
+            }
+
+            Toasts.ShowInfo("Serie", "Serie ab diesem Termin beendet.");
+            _selected = null;
+            await LoadWeekAsync();
+            _selectedRoomId = roomId;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task ReloadSelectionAndWeekAsync(string occurrenceKey)
+    {
+        await LoadWeekAsync();
+        await SelectEvent(occurrenceKey);
+    }
+
+    private void ResetEditor()
+    {
+        _editingEventId = null;
+        _editingSeriesId = null;
+        _editingOccurrenceDate = null;
+        _editSeriesFromOccurrence = false;
+        _editor = new TrainingEventEditVm
+        {
+            Date = _currentWeekStart,
+            StartTime = new TimeOnly(18, 0),
+            EndTime = new TimeOnly(19, 30),
+            AllowMemberRegistration = true,
+            RecurrencePattern = "weekly",
+            RecurrenceInterval = 1
+        };
+    }
+    private async Task DeleteRoom(TrainingRoomVm room){
+       var (ok,error,id) = await TrainingPlannerService.DeleteRoomAsync(room);
+       if(!ok)Toasts.ShowError("Fehler beim löschen",error??"Fehler beim löschen");
+       Toasts.ShowSuccess("Erfolg",$"{room.Name} erfolgreich gelöscht");
+    }
+    private async Task PreviousWeek()
+    {
+        _currentWeekStart = _currentWeekStart.AddDays(-7);
+        await LoadWeekAsync();
+    }
+
+    private async Task NextWeek()
+    {
+        _currentWeekStart = _currentWeekStart.AddDays(7);
+        await LoadWeekAsync();
+    }
+
+    private async Task CurrentWeek()
+    {
+        _currentWeekStart = StartOfWeek(DateTime.Today);
+        await LoadWeekAsync();
+    }
+
+    private static DateTime StartOfWeek(DateTime date)
+    {
+        var current = date.Date;
+        var diff = (7 + (current.DayOfWeek - DayOfWeek.Monday)) % 7;
+        return current.AddDays(-diff);
+    }
+}

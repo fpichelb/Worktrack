@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Worktrack.Data;
 
@@ -11,9 +12,11 @@ using Worktrack.Data;
 namespace Worktrack.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260326110910_AddTrainingPlanner")]
+    partial class AddTrainingPlanner
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -418,11 +421,23 @@ namespace Worktrack.Migrations
                     b.Property<int>("MaxParticipants")
                         .HasColumnType("int");
 
-                    b.Property<DateOnly?>("OccurrenceDate")
-                        .HasColumnType("date");
-
                     b.Property<int>("RecommendedParticipants")
                         .HasColumnType("int");
+
+                    b.Property<int>("RecurrenceInterval")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RecurrenceKey")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("RecurrencePattern")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime?>("RecurrenceUntil")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<DateTime>("StartAt")
                         .HasColumnType("datetime(6)");
@@ -435,14 +450,9 @@ namespace Worktrack.Migrations
                     b.Property<int>("TrainingRoomId")
                         .HasColumnType("int");
 
-                    b.Property<int?>("TrainingSeriesId")
-                        .HasColumnType("int");
-
                     b.HasKey("Id");
 
                     b.HasIndex("TrainingRoomId");
-
-                    b.HasIndex("TrainingSeriesId");
 
                     b.ToTable("TrainingEvents");
                 });
@@ -521,101 +531,6 @@ namespace Worktrack.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("TrainingRooms");
-                });
-
-            modelBuilder.Entity("Worktrack.Models.TrainingSeries", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<bool>("AllowGroupRegistration")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("AllowMemberRegistration")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("AllowParticipantEventSubmission")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<TimeOnly>("EndTime")
-                        .HasColumnType("time(6)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<int>("MaxParticipants")
-                        .HasColumnType("int");
-
-                    b.Property<int>("RecommendedParticipants")
-                        .HasColumnType("int");
-
-                    b.Property<int>("RecurrenceInterval")
-                        .HasColumnType("int");
-
-                    b.Property<string>("RecurrencePattern")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
-
-                    b.Property<DateOnly>("StartDate")
-                        .HasColumnType("date");
-
-                    b.Property<TimeOnly>("StartTime")
-                        .HasColumnType("time(6)");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(180)
-                        .HasColumnType("varchar(180)");
-
-                    b.Property<int>("TrainingRoomId")
-                        .HasColumnType("int");
-
-                    b.Property<DateOnly?>("UntilDate")
-                        .HasColumnType("date");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TrainingRoomId");
-
-                    b.ToTable("TrainingSeries");
-                });
-
-            modelBuilder.Entity("Worktrack.Models.TrainingSeriesException", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<bool>("IsCancelled")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<DateOnly>("OccurrenceDate")
-                        .HasColumnType("date");
-
-                    b.Property<string>("Reason")
-                        .IsRequired()
-                        .HasMaxLength(240)
-                        .HasColumnType("varchar(240)");
-
-                    b.Property<int>("TrainingSeriesId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TrainingSeriesId", "OccurrenceDate")
-                        .IsUnique();
-
-                    b.ToTable("TrainingSeriesExceptions");
                 });
 
             modelBuilder.Entity("Worktrack.Models.User", b =>
@@ -722,14 +637,7 @@ namespace Worktrack.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Worktrack.Models.TrainingSeries", "TrainingSeries")
-                        .WithMany("MaterializedEvents")
-                        .HasForeignKey("TrainingSeriesId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.Navigation("TrainingRoom");
-
-                    b.Navigation("TrainingSeries");
                 });
 
             modelBuilder.Entity("Worktrack.Models.TrainingEventParticipant", b =>
@@ -748,28 +656,6 @@ namespace Worktrack.Migrations
                     b.Navigation("TrainingEvent");
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("Worktrack.Models.TrainingSeries", b =>
-                {
-                    b.HasOne("Worktrack.Models.TrainingRoom", "TrainingRoom")
-                        .WithMany("Series")
-                        .HasForeignKey("TrainingRoomId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("TrainingRoom");
-                });
-
-            modelBuilder.Entity("Worktrack.Models.TrainingSeriesException", b =>
-                {
-                    b.HasOne("Worktrack.Models.TrainingSeries", "TrainingSeries")
-                        .WithMany("Exceptions")
-                        .HasForeignKey("TrainingSeriesId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("TrainingSeries");
                 });
 
             modelBuilder.Entity("Worktrack.Models.Activity", b =>
@@ -792,15 +678,6 @@ namespace Worktrack.Migrations
             modelBuilder.Entity("Worktrack.Models.TrainingRoom", b =>
                 {
                     b.Navigation("Events");
-
-                    b.Navigation("Series");
-                });
-
-            modelBuilder.Entity("Worktrack.Models.TrainingSeries", b =>
-                {
-                    b.Navigation("Exceptions");
-
-                    b.Navigation("MaterializedEvents");
                 });
 #pragma warning restore 612, 618
         }
