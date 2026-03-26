@@ -305,20 +305,20 @@ else
                                 </div>
                                 @if(_showRooms){
                                 <AuthorizeView Roles="admin,actManager,trainer,betreuer">
-                                <div class="row g-2">
-                                    <div class="col-12">
-                                        <label class="form-label">Neuer Raum</label>
-                                        <input class="form-control" @bind="_newRoomName" />
+                                    <div class="row g-2">
+                                        <div class="col-12">
+                                            <label class="form-label">Neuer Raum</label>
+                                            <input class="form-control" @bind="_newRoomName" />
+                                        </div>
+                                        <label class="form-label">Farbe</label>
+                                        <div class="col-md-6">  
+                                            <input class="form-control-color p-1" type="color" @bind="_newRoomColor" />
+                                        </div>
+                                        <div class="col-md-6 d-flex align-items-end">
+                                            <button class="btn btn-outline-secondary w-100" @onclick="AddRoom" disabled="@_busy">Raum anlegen</button>
+                                        </div>
                                     </div>
-                                    <label class="form-label">Farbe</label>
-                                    <div class="col-md-6">  
-                                        <input class="form-control-color p-1" type="color" @bind="_newRoomColor" />
-                                    </div>
-                                    <div class="col-md-6 d-flex align-items-end">
-                                        <button class="btn btn-outline-secondary w-100" @onclick="AddRoom" disabled="@_busy">Raum anlegen</button>
-                                    </div>
-                                </div>
-                                </AuthorizeView> 
+                                </AuthorizeView>
                                 <div class="mt-3">
                                     @if (_week.Rooms.Count == 0)
                                     {
@@ -510,12 +510,11 @@ else
                                     </div> *@
                                 }
                             </div>
+                            </AuthorizeView>
                         </div>
-                        </AuthorizeView>
                     </div>
                 </div>
             </div>
-        </AuthorizeView>
     </div>
 }
 
