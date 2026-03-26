@@ -43,7 +43,7 @@ else
             </div>
         </div>
 
-        <div class="col-12 col-xxl-8">
+        <div class="col-12 @(_selected is null ?"":"col-xxl-8")">
             @if (_week.Rooms.Count == 0)
             {
                 <div class="alert alert-info mb-0">
@@ -149,7 +149,7 @@ else
             }
         </div>
 
-        <div class="col-12 col-xxl-4">
+        <div class="col-12 @(_selected is null ?"":"col-xxl-4")">
             @if (_selected is null)
             {
                 <div class="alert alert-info mb-0">Wähle einen Termin aus dem Wochenraster aus.</div>
@@ -157,13 +157,16 @@ else
             else
             {
                 <div class="card">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start gap-2">
+                    <div class="card-body pt-0">
+                        <div class="d-flex justify-content-between align-items-start gap-2 ">
                             <div>
                                 <h4 class="mb-1">@_selected.Title</h4>
                                 <div class="text-muted">@_selected.RoomName</div>
                             </div>
+                            <div>
                             <span class="training-meta-chip">@_selected.StartAt.ToString("dd.MM. HH:mm")</span>
+                            <button class="btn-remove ms-3 p-auto position-absolute" @onclick="()=>_selected = null">✕</button>
+                            </div>
                         </div>
 
                         <div class="mt-3">
@@ -290,7 +293,7 @@ else
                 <div class="card">
                     <div class="card-body">
                         <div class="row g-4">
-                            <div class="col-12 col-xl-4">
+                            <div class="col-12">
                                 <div class="row g-2">
                                 <div class="col-md-11 ">
                                 <h5>Trainingsräume</h5>
@@ -344,7 +347,7 @@ else
                                 }
                             </div>
                             <AuthorizeView Roles="admin,actManager,trainer,betreuer">
-                            <div class="col-12 col-xl-8">
+                            <div class="col-12">
                                 <h5>Termin anlegen</h5>
 
                                 <div class="row g-2">
