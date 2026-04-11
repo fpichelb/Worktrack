@@ -42,7 +42,7 @@ else
                         </div>
                         <button class="btn btn-primary" @onclick="PreviousWeek">Zurück</button>
                         <button class="btn btn-primary" @onclick="CurrentWeek">Heute</button>
-                        <button class="btn btn-primary" @onclick="NextWeek">Nächste Woche</button>
+                        <button class="btn btn-primary" @onclick="NextWeek">Nächste@(_calendarView == "week"?" Woche":"r Monat")</button>
                     </div>
                 </div>
             </div>
