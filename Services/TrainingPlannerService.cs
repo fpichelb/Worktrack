@@ -1031,7 +1031,7 @@ public class TrainingPlannerService
             return "Bitte einen Raum wählen.";
         if (!vm.IsAllDay && vm.EndTime <= vm.StartTime)
             return "Endzeit muss nach der Startzeit liegen.";
-        if (vm.EndDate.Date < vm.Date.Date)
+        if (vm.EndDate.Date < vm.Date.Date && vm.IsAllDay)
             return "Enddatum darf nicht vor dem Startdatum liegen.";
         if (vm.IsRecurring && vm.IsAllDay && vm.EndDate.Date > vm.Date.Date)
             return "Mehrtägige Ganztagstermine können aktuell nicht als Serie gespeichert werden.";
