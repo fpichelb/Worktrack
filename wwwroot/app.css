@@ -208,7 +208,7 @@ footer {
   padding: 2rem;
 }
 
-.btn {
+.btn:not([class*="btn-"]) {
   background-color: var(--indigo);
   color: white;
   padding: 0.75rem 1.25rem;
@@ -219,15 +219,15 @@ footer {
   transition: background 0.2s ease;
 }
 
-.btn:hover {
+.btn:not([class*="btn-"]):hover {
   background-color: var(--indigo-dark);
 }
 
-.btn.secondary {
+.btn:not([class*="btn-"]).secondary {
   background-color: var(--gray);
 }
 
-.btn.secondary:hover {
+.btn:not([class*="btn-"]).secondary:hover {
   background-color: var(--gray-dark);
 }
 .btn-add {
@@ -820,6 +820,105 @@ input[type="date"] {
   margin-bottom: 0;
 }
 
+.training-all-day-fill {
+  position: absolute;
+  top: 0.3rem;
+  bottom: 0.3rem;
+  left: 0.3rem;
+  right: 0.3rem;
+  border: 0;
+  border-left: 5px solid var(--room-color);
+  border-radius: 14px;
+  color: #0f172a;
+  text-align: left;
+  padding: 0.55rem 0.65rem;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+  z-index: 1;
+  overflow: hidden;
+}
+
+.training-all-day-fill .fw-semibold {
+  color: #0f172a;
+}
+
+.training-all-day-fill .text-muted {
+  color: #475569 !important;
+}
+
+.training-all-day-fill.is-selected {
+  outline: 2px solid #0f172a;
+}
+
+.training-all-day-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.65rem;
+}
+
+.training-all-day-chip,
+.training-month-chip {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.35rem 0.65rem;
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.training-month-shell {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.training-month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  min-width: 980px;
+  gap: 0.4rem;
+}
+
+.training-month-day {
+  min-height: 104px;
+  border: 1px solid #dbe4ee;
+  border-radius: 12px;
+  padding: 0.45rem;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.training-month-day.is-muted {
+  opacity: 0.55;
+}
+
+.training-month-day.is-today {
+  border-color: #0f172a;
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.08);
+}
+
+.training-month-date {
+  font-weight: 700;
+  font-size: 0.82rem;
+  margin-bottom: 0.35rem;
+}
+
+.training-month-events {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.training-month-chip {
+  padding: 0.2rem 0.45rem;
+  font-size: 0.72rem;
+  line-height: 1.15;
+  border-radius: 8px;
+}
+
 .training-meta-chip {
   display: inline-flex;
   align-items: center;
@@ -1016,6 +1115,55 @@ input[type="date"] {
 
   input[type="date"] {
     width: 150px;
+  }
+}
+
+@media (max-width: 700px) {
+  .training-month-grid {
+    min-width: 700px;
+    gap: 0.25rem;
+  }
+
+  .training-month-day {
+    min-height: 88px;
+    border-radius: 10px;
+    padding: 0.3rem;
+  }
+
+  .training-month-date {
+    font-size: 0.72rem;
+    margin-bottom: 0.2rem;
+  }
+
+  .training-month-events {
+    gap: 0.15rem;
+  }
+
+  .training-month-chip {
+    padding: 0.14rem 0.3rem;
+    font-size: 0.64rem;
+    border-radius: 6px;
+  }
+}
+
+@media (max-width: 480px) {
+  .training-month-grid {
+    min-width: 620px;
+    gap: 0.2rem;
+  }
+
+  .training-month-day {
+    min-height: 78px;
+    padding: 0.22rem;
+  }
+
+  .training-month-date {
+    font-size: 0.68rem;
+  }
+
+  .training-month-chip {
+    padding: 0.1rem 0.24rem;
+    font-size: 0.58rem;
   }
 }
 

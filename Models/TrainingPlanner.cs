@@ -19,11 +19,13 @@ public class TrainingEvent
     public string Description { get; set; } = "";
     public int TrainingRoomId { get; set; }
     public TrainingRoom TrainingRoom { get; set; } = null!;
+    public bool AppliesToAllRooms { get; set; }
     public int? TrainingSeriesId { get; set; }
     public TrainingSeries? TrainingSeries { get; set; }
     public DateOnly? OccurrenceDate { get; set; }
     public DateTime StartAt { get; set; }
     public DateTime EndAt { get; set; }
+    public bool IsAllDay { get; set; }
     public int MaxParticipants { get; set; } =  0;
     public int RecommendedParticipants { get; set; } = 0;
     public bool AllowMemberRegistration { get; set; } = false;
@@ -40,9 +42,11 @@ public class TrainingSeries
     public string Description { get; set; } = "";
     public int TrainingRoomId { get; set; }
     public TrainingRoom TrainingRoom { get; set; } = null!;
+    public bool AppliesToAllRooms { get; set; }
     public DateOnly StartDate { get; set; }
     public TimeOnly StartTime { get; set; }
     public TimeOnly EndTime { get; set; }
+    public bool IsAllDay { get; set; }
     public string RecurrencePattern { get; set; } = "weekly";
     public int RecurrenceInterval { get; set; } = 1;
     public DateOnly? UntilDate { get; set; }

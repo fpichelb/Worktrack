@@ -401,7 +401,7 @@ else
                                 <input class="form-control" type="number" @bind="_new.EmpfohleneTeilnehmer" />
                             </div>
                             <div class="col-md-6">
-                                <button class="btn btn-success" disabled="@_busy" @onclick="Create">
+                                <button class="btn @(_selectedLoaded ?  "btn-outline-danger" : "btn-primary" )" disabled="@_busy" @onclick="Create">
                                     Erstellen
                                 </button>
                             </div>
@@ -413,8 +413,11 @@ else
                             }
                             @if (_selectedLoaded)
                             {
-                                <button class="btn btn-outline-secondary" disabled="@_busy" @onclick="Save">
+                                <button class="btn btn-primary" disabled="@_busy" @onclick="Save">
                                     Änderung speichern
+                                </button>
+                                <button class="btn btn-outline-secondary" disabled="@_busy" @onclick="SelectedTrashed">
+                                    Bearbeitung verwerfen
                                 </button>
                             }
                         </div>
@@ -861,6 +864,11 @@ else
         {
             _busy = false;
         }
+    }
+
+    private void SelectedTrashed(){
+        _selectedLoaded = false;
+        ClearSelection();
     }
     private void LoadSelectedIntoEditor()
     {

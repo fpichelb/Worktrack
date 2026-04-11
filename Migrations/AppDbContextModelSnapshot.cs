@@ -408,12 +408,18 @@ namespace Worktrack.Migrations
                     b.Property<bool>("AllowParticipantEventSubmission")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<bool>("AppliesToAllRooms")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasColumnType("longtext");
 
                     b.Property<DateTime>("EndAt")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("IsAllDay")
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<int>("MaxParticipants")
                         .HasColumnType("int");
@@ -540,6 +546,9 @@ namespace Worktrack.Migrations
                     b.Property<bool>("AllowParticipantEventSubmission")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<bool>("AppliesToAllRooms")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasColumnType("longtext");
@@ -548,6 +557,9 @@ namespace Worktrack.Migrations
                         .HasColumnType("time(6)");
 
                     b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsAllDay")
                         .HasColumnType("tinyint(1)");
 
                     b.Property<int>("MaxParticipants")

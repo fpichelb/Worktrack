@@ -29,14 +29,19 @@ else
             <div class="card">
                 <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-2">
                     <div>
-                        <div class="small text-muted">Woche</div>
+                        <div class="small text-muted">@(_calendarView == "month" ? "Monat" : "Woche")</div>
                         <div class="fs-5 fw-semibold">
-                            @_week.WeekStart.ToString("dd.MM.yyyy") - @_week.WeekStart.AddDays(6).ToString("dd.MM.yyyy")
+                            @CurrentPeriodLabel
                         </div>
                     </div>
                     <div class="d-flex flex-wrap gap-2">
-                        <button class="btn btn-outline-secondary" @onclick="PreviousWeek">Vorherige Woche</button>
-                        <button class="btn btn-outline-secondary" @onclick="CurrentWeek">Heute</button>
+                        <input class="form-control" style="max-width:180px;" type="date" @bind="_anchorDate" @bind:after="ApplySelectedDate" />
+                        <div class="btn-group">
+                            <button class="btn @(_calendarView == "week" ? "btn-primary" : "btn-outline-secondary")" @onclick='() => SetCalendarView("week")'>Woche</button>
+                            <button class="btn @(_calendarView == "month" ? "btn-primary" : "btn-outline-secondary")" @onclick='() => SetCalendarView("month")'>Monat</button>
+                        </div>
+                        <button class="btn btn-primary" @onclick="PreviousWeek">Zurück</button>
+                        <button class="btn btn-primary" @onclick="CurrentWeek">Heute</button>
                         <button class="btn btn-primary" @onclick="NextWeek">Nächste Woche</button>
                     </div>
                 </div>
@@ -69,11 +74,13 @@ else
                     }
                 </div>
 
-                <div class="training-calendar-shell">
-                    <div class="training-calendar-header">
-                        <div class="training-calendar-time-header small text-muted">Zeit</div>
-                        @foreach (var day in _week.Days)
-                        {
+                @if (_calendarView == "week")
+                {
+                    <div class="training-calendar-shell">
+                        <div class="training-calendar-header">
+                            <div class="training-calendar-time-header small text-muted">Zeit</div>
+                            @foreach (var day in _week.Days)
+                            {
                             <div class="training-calendar-day">
                                 <div class="fw-semibold">@day.ToString("dddd")</div>
                                 <div class="small text-muted">@day.ToString("dd.MM.")</div>
@@ -81,72 +88,126 @@ else
                         }
                     </div>
 
-                    <div class="training-calendar-body" style="@GetCalendarBodyStyle()">
-                        <div class="training-time-axis">
-                            @foreach (var marker in TimeMarkers)
+                        <div class="training-calendar-body" style="@GetCalendarBodyStyle()">
+                            <div class="training-time-axis">
+                                @foreach (var marker in TimeMarkers)
+                                {
+                                    <div class="training-time-marker" style="@GetMarkerStyle(marker)">
+                                        <span>@marker.ToString("HH:mm")</span>
+                                    </div>
+                                }
+                            </div>
+
+                            @foreach (var day in _week.Days)
                             {
-                                <div class="training-time-marker" style="@GetMarkerStyle(marker)">
-                                    <span>@marker.ToString("HH:mm")</span>
-                                </div>
-                            }
-                        </div>
-
-                        @foreach (var day in _week.Days)
-                        {
-                            var dayEvents = GetSelectedRoomDayEvents(day).ToList();
-                            <div class="training-day-lane">
-                                @foreach (var marker in TimeMarkers.Skip(1))
-                                {
-                                    <div class="training-day-line" style="@GetMarkerStyle(marker)"></div>
-                                }
-
-                                @if (dayEvents.Count == 0)
-                                {
-                                    <div class="training-empty p-2">Kein Termin</div>
-                                }
-                                else
-                                {
-                                    @foreach (var item in dayEvents)
+                                var dayEvents = GetSelectedRoomDayEvents(day).ToList();
+                                var allDayEvents = GetSelectedRoomDayAllDayEvents(day).ToList();
+                                <div class="training-day-lane">
+                                    @foreach (var item in allDayEvents)
                                     {
                                         var selected = _selected?.OccurrenceKey == item.OccurrenceKey;
-                                        var tooltip = GetEventTooltip(item);
-                                        var isCompact = IsCompactAllRoomsEvent(item, dayEvents);
-                                        <button class="training-event-card @(selected ? "is-selected" : "")"
-                                                style="@GetEventStyle(item, dayEvents)"
-                                                title="@tooltip"
+                                        <button class="training-all-day-fill @(selected ? "is-selected" : "")"
+                                                style="@GetAllDayFillStyle(item, allDayEvents)"
+                                                title="@GetEventTooltip(item)"
                                                 @onclick="() => SelectEvent(item.OccurrenceKey)">
-                                            @if (SelectedRoomId == AllRoomsId && isCompact)
-                                            {
-                                                <span class="visually-hidden">@tooltip</span>
-                                            }
-                                            else
-                                            {
-                                                <div class="fw-semibold">@item.Title</div>
-                                                <div class="small text-muted">
-                                                    @item.StartAt.ToString("HH:mm") - @item.EndAt.ToString("HH:mm")
-                                                </div>
-                                                <div class="small mt-1">
-                                                    @if (item.MaxParticipants > 0)
-                                                    {
-                                                        <span>@item.ParticipantCount / @item.MaxParticipants Teiln.</span>
-                                                    }
-                                                    else
-                                                    {
-                                                        <span>@item.ParticipantCount Teiln.</span>
-                                                    }
-                                                </div>
-                                                @if (item.IsRecurring)
+                                            <div class="fw-semibold">@item.Title</div>
+                                            <div class="small text-muted">
+                                                @(item.AppliesToAllRooms ? "Alle Räume" : item.RoomName)
+                                            </div>
+                                            <div class="small mt-1">
+                                                @if (item.MaxParticipants > 0)
                                                 {
-                                                    <div class="small text-muted mt-1">Serie</div>
+                                                    <span>@item.ParticipantCount / @item.MaxParticipants Teiln.</span>
                                                 }
+                                                else
+                                                {
+                                                    <span>@item.ParticipantCount Teiln.</span>
+                                                }
+                                            </div>
+                                            @if (item.IsRecurring)
+                                            {
+                                                <div class="small text-muted mt-1">Serie</div>
                                             }
                                         </button>
                                     }
-                                }
-                            </div>
-                        }
+
+                                    @foreach (var marker in TimeMarkers.Skip(1))
+                                    {
+                                        <div class="training-day-line" style="@GetMarkerStyle(marker)"></div>
+                                    }
+
+                                    @if (dayEvents.Count == 0)
+                                    {
+                                        <div class="training-empty p-2">Kein Termin</div>
+                                    }
+                                    else
+                                    {
+                                        @foreach (var item in dayEvents)
+                                        {
+                                            var selected = _selected?.OccurrenceKey == item.OccurrenceKey;
+                                            var tooltip = GetEventTooltip(item);
+                                            var isCompact = IsCompactAllRoomsEvent(item, dayEvents);
+                                            <button class="training-event-card @(selected ? "is-selected" : "")"
+                                                    style="@GetEventStyle(item, dayEvents)"
+                                                    title="@tooltip"
+                                                    @onclick="() => SelectEvent(item.OccurrenceKey)">
+                                                @if (SelectedRoomId == AllRoomsId && isCompact)
+                                                {
+                                                    <span class="visually-hidden">@tooltip</span>
+                                                }
+                                                else
+                                                {
+                                                    <div class="fw-semibold">@item.Title</div>
+                                                    <div class="small text-muted">
+                                                        @item.StartAt.ToString("HH:mm") - @item.EndAt.ToString("HH:mm")
+                                                    </div>
+                                                    <div class="small mt-1">
+                                                        @if (item.MaxParticipants > 0)
+                                                        {
+                                                            <span>@item.ParticipantCount / @item.MaxParticipants Teiln.</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span>@item.ParticipantCount Teiln.</span>
+                                                        }
+                                                    </div>
+                                                    @if (item.IsRecurring)
+                                                    {
+                                                        <div class="small text-muted mt-1">Serie</div>
+                                                    }
+                                                }
+                                            </button>
+                                        }
+                                    }
+                                </div>
+                            }
+                        </div>
                     </div>
-                </div>
+                }
+                else
+                {
+                    <div class="training-month-shell">
+                        <div class="training-month-grid">
+                            @foreach (var day in _month.Days)
+                            {
+                                <div class="training-month-day @(day.IsCurrentMonth ? "" : "is-muted") @(day.IsToday ? "is-today" : "")">
+                                    <div class="training-month-date">@day.Date.ToString("dd.MM.")</div>
+                                    <div class="training-month-events">
+                                        @foreach (var item in GetMonthDayEvents(day))
+                                        {
+                                            <button class="training-month-chip"
+                                                    style="@GetAllDayChipStyle(item)"
+                                                    title="@GetEventTooltip(item)"
+                                                    @onclick="() => SelectEvent(item.OccurrenceKey)">
+                                                @(item.IsAllDay ? item.Title : $"{item.StartAt:HH:mm} {item.Title}")
+                                            </button>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
             }
         </div>
 
@@ -359,13 +420,20 @@ else
 
                                     <div class="col-md-6">
                                         <label class="form-label">Raum</label>
-                                        <select class="form-select" @bind="_editor.TrainingRoomId">
+                                        @if (_editor.AppliesToAllRooms)
+                                        {
+                                            <input class="form-control" value="Alle Räume" disabled />
+                                        }
+                                        else
+                                        {
+                                            <select class="form-select" @bind="_editor.TrainingRoomId">
                                             <option value="0">Raum wählen</option>
                                             @foreach (var room in _week.Rooms)
                                             {
                                                 <option value="@room.Id">@room.Name</option>
                                             }
-                                        </select>
+                                            </select>
+                                        }
                                     </div>
 
                                     <div class="col-md-4">
@@ -373,15 +441,25 @@ else
                                         <input class="form-control" type="date" @bind="_editor.Date" />
                                     </div>
 
-                                    <div class="col-md-4">
-                                        <label class="form-label">Start</label>
-                                        <input class="form-control" type="time" @bind="_editor.StartTime" />
-                                    </div>
+                                    @if (_editor.IsAllDay)
+                                    {
+                                        <div class="col-md-8">
+                                            <label class="form-label">Bis Datum</label>
+                                            <input class="form-control" type="date" @bind="_editor.EndDate" />
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="col-md-4">
+                                            <label class="form-label">Start</label>
+                                            <input class="form-control" type="time" @bind="_editor.StartTime" />
+                                        </div>
 
-                                    <div class="col-md-4">
-                                        <label class="form-label">Ende</label>
-                                        <input class="form-control" type="time" @bind="_editor.EndTime" />
-                                    </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">Ende</label>
+                                            <input class="form-control" type="time" @bind="_editor.EndTime" />
+                                        </div>
+                                    }
 
                                     <div class="col-12">
                                         <label class="form-label">Beschreibung</label>
@@ -415,12 +493,26 @@ else
 
                                     <div class="col-12">
                                         <label class="form-check">
+                                            <input class="form-check-input" type="checkbox" @bind="_editor.AppliesToAllRooms" />
+                                            <span class="form-check-label">Willy komplett</span>
+                                        </label>
+                                    </div>
+
+                                    <div class="col-12">
+                                        <label class="form-check">
+                                            <input class="form-check-input" type="checkbox" @bind="_editor.IsAllDay" />
+                                            <span class="form-check-label">Ganztägig / mehrtägig</span>
+                                        </label>
+                                    </div>
+
+                                    <div class="col-12">
+                                        <label class="form-check">
                                             <input class="form-check-input" type="checkbox" @bind="_editor.IsRecurring" />
                                             <span class="form-check-label">Wiederkehrender Termin</span>
                                         </label>
                                     </div>
 
-                                    @if (_editor.IsRecurring)
+                                    @if (_editor.IsRecurring && !(_editor.IsAllDay && _editor.EndDate.Date > _editor.Date.Date))
                                     {
                                         <div class="col-md-4">
                                             <label class="form-label">Rhythmus</label>
@@ -439,16 +531,22 @@ else
                                             <input class="form-control" type="date" @bind="_editor.RecurrenceUntil" />
                                         </div>
                                     }
+                                    else if (_editor.IsRecurring && _editor.IsAllDay && _editor.EndDate.Date > _editor.Date.Date)
+                                    {
+                                        <div class="col-12">
+                                            <div class="alert alert-info mb-0">Mehrtägige Ganztagstermine werden als Einzelblock gespeichert, nicht als Serie.</div>
+                                        </div>
+                                    }
 
                                     <div class="col-12 d-flex flex-wrap gap-2">
-                                        <button class="btn btn-success" @onclick="CreateEvent" disabled="@_busy">Neu Anlegen</button>
+                                        <button class="btn btn-primary" @onclick="CreateEvent" disabled="@_busy">Neu Anlegen</button>
                                         @if (_selected is not null)
                                         {
                                             <button class="btn btn-outline-secondary" @onclick="LoadSelectedIntoEditor">Bearbeiten</button>
                                         }
                                         @if (_selected?.SeriesId.HasValue == true)
                                         {
-                                            <button class="btn btn-outline-warning" @onclick="LoadSelectedSeriesFromHereIntoEditor">Serie ab hier verändern</button>
+                                            <button class="btn btn-danger" @onclick="LoadSelectedSeriesFromHereIntoEditor">Serie ab hier verändern</button>
                                         }
                                         @if (IsEditing)
                                         {
@@ -531,8 +629,11 @@ else
     private string? _error;
     private int _currentUserId;
     private TrainingWeekVm _week = new();
+    private TrainingMonthVm _month = new();
     private TrainingEventDetailVm? _selected;
+    private DateTime _anchorDate = DateTime.Today;
     private DateTime _currentWeekStart = StartOfWeek(DateTime.Today);
+    private string _calendarView = "week";
     private TrainingEventEditVm _editor = new();
     private int? _editingEventId;
     private int? _editingSeriesId;
@@ -552,6 +653,7 @@ else
     {
         await LoadCurrentUserAsync();
         _editor.Date = DateTime.Today;
+        _editor.EndDate = DateTime.Today;
         await LoadWeekAsync();
     }
 
@@ -572,7 +674,9 @@ else
 
         try
         {
+            _currentWeekStart = StartOfWeek(_anchorDate);
             _week = await TrainingPlannerService.GetWeekAsync(_currentWeekStart, _currentUserId);
+            _month = await TrainingPlannerService.GetMonthAsync(_anchorDate, _currentUserId);
             EnsureSelectedRoom();
         }
         catch (Exception ex)
@@ -591,7 +695,7 @@ else
     {
         get
         {
-            var weekEvents = _week.Events.ToList();
+            var weekEvents = _week.Events.Where(x => !x.IsAllDay).ToList();
             if (weekEvents.Count == 0)
                 return new TimeOnly(17, 0);
 
@@ -604,7 +708,7 @@ else
     {
         get
         {
-            var weekEvents = _week.Events.ToList();
+            var weekEvents = _week.Events.Where(x => !x.IsAllDay).ToList();
             if (weekEvents.Count == 0)
                 return new TimeOnly(21, 0);
 
@@ -636,16 +740,40 @@ else
 
     private IEnumerable<TrainingWeekEventVm> SelectedRoomEvents =>
         _week.Events
-            .Where(x => SelectedRoomId == AllRoomsId || x.TrainingRoomId == SelectedRoomId)
+            .Where(x => SelectedRoomId == AllRoomsId || x.AppliesToAllRooms || x.TrainingRoomId == SelectedRoomId)
             .OrderBy(x => x.StartAt);
 
     private bool IsEditing => _editingEventId.HasValue || _editingSeriesId.HasValue;
 
+    private string CurrentPeriodLabel =>
+        _calendarView == "month"
+            ? _anchorDate.ToString("MMMM yyyy")
+            : $"{_week.WeekStart:dd.MM.yyyy} - {_week.WeekStart.AddDays(6):dd.MM.yyyy}";
+
     private IEnumerable<TrainingWeekEventVm> GetSelectedRoomDayEvents(DateTime day)
     {
         return SelectedRoomEvents
+            .Where(x => !x.IsAllDay)
             .Where(x => x.StartAt.Date == day.Date)
             .OrderBy(x => x.StartAt);
+    }
+
+    private IEnumerable<TrainingWeekEventVm> GetSelectedRoomDayAllDayEvents(DateTime day)
+    {
+        return SelectedRoomEvents
+            .Where(x => x.IsAllDay)
+            .Where(x => x.StartAt.Date <= day.Date && x.EndAt.Date >= day.Date)
+            .OrderBy(x => x.StartAt)
+            .ThenBy(x => x.Title);
+    }
+
+    private IEnumerable<TrainingWeekEventVm> GetMonthDayEvents(TrainingMonthDayVm day)
+    {
+        return day.Events
+            .Where(x => SelectedRoomId == AllRoomsId || x.AppliesToAllRooms || x.TrainingRoomId == SelectedRoomId)
+            .OrderBy(x => x.IsAllDay ? 0 : 1)
+            .ThenBy(x => x.StartAt)
+            .Take(5);
     }
 
     private void SelectRoom(int roomId)
@@ -673,6 +801,39 @@ else
     private string GetCalendarBodyStyle()
     {
         return string.Create(CultureInfo.InvariantCulture, $"--lane-height:{CalendarHeightPx:F1}px");
+    }
+
+    private string GetAllDayChipStyle(TrainingWeekEventVm item)
+    {
+        var background = item.AppliesToAllRooms ? "#0f172a" : item.RoomColor;
+        return $"background:{background};";
+    }
+
+    private string GetAllDayFillStyle(TrainingWeekEventVm item, IReadOnlyList<TrainingWeekEventVm> allDayEvents)
+    {
+        var color = item.AppliesToAllRooms ? "#0f172a" : item.RoomColor;
+
+        if (SelectedRoomId == AllRoomsId && allDayEvents.Count > 1)
+        {
+            var roomIds = allDayEvents
+                .Select(x => x.TrainingRoomId)
+                .Distinct()
+                .OrderBy(GetRoomSortIndex)
+                .ToList();
+
+            var index = roomIds.IndexOf(item.TrainingRoomId);
+            if (index < 0)
+                index = 0;
+
+            var widthPercent = 100d / roomIds.Count;
+            var leftPercent = widthPercent * index;
+
+            return string.Create(
+                CultureInfo.InvariantCulture,
+                $"--room-color:{color};left:calc({leftPercent:F4}% + 0.3rem);width:calc({widthPercent:F4}% - 0.6rem);right:auto;");
+        }
+
+        return $"--room-color:{color};";
     }
 
     private string GetMarkerStyle(TimeOnly marker)
@@ -758,7 +919,10 @@ else
     private string GetEventTooltip(TrainingWeekEventVm item)
     {
         var recurring = item.IsRecurring ? " | Serie" : "";
-        return $"{item.RoomName}: {item.Title} ({item.StartAt:HH:mm} - {item.EndAt:HH:mm}){recurring}";
+        var timing = item.IsAllDay
+            ? (item.StartAt.Date == item.EndAt.Date ? $"ganztägig {item.StartAt:dd.MM.yyyy}" : $"ganztägig {item.StartAt:dd.MM.yyyy} - {item.EndAt:dd.MM.yyyy}")
+            : $"{item.StartAt:HH:mm} - {item.EndAt:HH:mm}";
+        return $"{item.RoomName}: {item.Title} ({timing}){recurring}";
     }
 
     private bool IsCompactAllRoomsEvent(TrainingWeekEventVm item, IReadOnlyList<TrainingWeekEventVm> dayEvents)
@@ -890,7 +1054,10 @@ else
             Title = _selected.Title,
             Description = _selected.Description,
             TrainingRoomId = _selected.TrainingRoomId,
+            AppliesToAllRooms = _selected.AppliesToAllRooms,
+            IsAllDay = _selected.IsAllDay,
             Date = _selected.StartAt.Date,
+            EndDate = _selected.EndAt.Date,
             StartTime = TimeOnly.FromDateTime(_selected.StartAt),
             EndTime = TimeOnly.FromDateTime(_selected.EndAt),
             MaxParticipants = _selected.MaxParticipants,
@@ -1118,7 +1285,8 @@ else
         _editSeriesFromOccurrence = false;
         _editor = new TrainingEventEditVm
         {
-            Date = _currentWeekStart,
+            Date = _anchorDate.Date,
+            EndDate = _anchorDate.Date,
             StartTime = new TimeOnly(18, 0),
             EndTime = new TimeOnly(19, 30),
             AllowMemberRegistration = true,
@@ -1133,19 +1301,31 @@ else
     }
     private async Task PreviousWeek()
     {
-        _currentWeekStart = _currentWeekStart.AddDays(-7);
+        _anchorDate = _calendarView == "month" ? _anchorDate.AddMonths(-1) : _anchorDate.AddDays(-7);
         await LoadWeekAsync();
     }
 
     private async Task NextWeek()
     {
-        _currentWeekStart = _currentWeekStart.AddDays(7);
+        _anchorDate = _calendarView == "month" ? _anchorDate.AddMonths(1) : _anchorDate.AddDays(7);
         await LoadWeekAsync();
     }
 
     private async Task CurrentWeek()
     {
+        _anchorDate = DateTime.Today;
         _currentWeekStart = StartOfWeek(DateTime.Today);
+        await LoadWeekAsync();
+    }
+
+    private async Task ApplySelectedDate()
+    {
+        await LoadWeekAsync();
+    }
+
+    private async Task SetCalendarView(string view)
+    {
+        _calendarView = view;
         await LoadWeekAsync();
     }
 

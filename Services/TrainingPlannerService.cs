@@ -71,129 +71,48 @@ public class TrainingPlannerService
 
         var start = StartOfWeek(weekStart);
         var end = start.AddDays(7);
-        var startDate = DateOnly.FromDateTime(start);
-        var endDate = DateOnly.FromDateTime(end.AddDays(-1));
-
-        var rooms = await db.TrainingRooms
-            .Where(x => x.IsActive)
-            .OrderBy(x => x.SortOrder)
-            .ThenBy(x => x.Name)
-            .Select(x => new TrainingRoomVm
-            {
-                Id = x.Id,
-                Name = x.Name,
-                Color = x.Color
-            })
-            .ToListAsync(ct);
-
-        var standaloneEvents = await db.TrainingEvents
-            .Where(x => x.TrainingSeriesId == null && x.StartAt < end && x.EndAt >= start)
-            .OrderBy(x => x.StartAt)
-            .Select(x => new TrainingWeekEventVm
-            {
-                OccurrenceKey = BuildSingleKey(x.Id),
-                EventId = x.Id,
-                Title = x.Title,
-                TrainingRoomId = x.TrainingRoomId,
-                RoomName = x.TrainingRoom.Name,
-                RoomColor = x.TrainingRoom.Color,
-                StartAt = x.StartAt,
-                EndAt = x.EndAt,
-                ParticipantCount = x.Participants.Sum(p => p.ParticipantCount),
-                MaxParticipants = x.MaxParticipants,
-                IsCurrentUserRegistered = currentUserId > 0 && x.Participants.Any(p => p.UserId == currentUserId),
-                AllowMemberRegistration = x.AllowMemberRegistration,
-                AllowGroupRegistration = x.AllowGroupRegistration,
-                AllowParticipantEventSubmission = x.AllowParticipantEventSubmission,
-                IsRecurring = false,
-                HasMaterializedEvent = true
-            })
-            .ToListAsync(ct);
-
-        var series = await db.TrainingSeries
-            .Where(x => x.IsActive &&
-                        x.StartDate <= endDate &&
-                        (!x.UntilDate.HasValue || x.UntilDate.Value >= startDate))
-            .Include(x => x.TrainingRoom)
-            .Include(x => x.Exceptions.Where(e => e.OccurrenceDate >= startDate && e.OccurrenceDate <= endDate))
-            .Include(x => x.MaterializedEvents.Where(e => e.OccurrenceDate.HasValue &&
-                                                          e.OccurrenceDate.Value >= startDate &&
-                                                          e.OccurrenceDate.Value <= endDate))
-                .ThenInclude(e => e.Participants)
-            .ToListAsync(ct);
-
-        var recurringEvents = new List<TrainingWeekEventVm>();
-
-        foreach (var item in series)
-        {
-            var exceptionDates = item.Exceptions
-                .Where(x => x.IsCancelled)
-                .Select(x => x.OccurrenceDate)
-                .ToHashSet();
-
-            var materializedMap = item.MaterializedEvents
-                .Where(x => x.OccurrenceDate.HasValue)
-                .ToDictionary(x => x.OccurrenceDate!.Value, x => x);
-
-            foreach (var occurrenceDate in ExpandSeriesOccurrences(item, startDate, endDate))
-            {
-                if (exceptionDates.Contains(occurrenceDate))
-                    continue;
-
-                if (materializedMap.TryGetValue(occurrenceDate, out var materialized))
-                {
-                    recurringEvents.Add(new TrainingWeekEventVm
-                    {
-                        OccurrenceKey = BuildSeriesKey(item.Id, occurrenceDate),
-                        EventId = materialized.Id,
-                        SeriesId = item.Id,
-                        Title = materialized.Title,
-                        TrainingRoomId = materialized.TrainingRoomId,
-                        RoomName = item.TrainingRoom.Name,
-                        RoomColor = item.TrainingRoom.Color,
-                        StartAt = materialized.StartAt,
-                        EndAt = materialized.EndAt,
-                        ParticipantCount = materialized.Participants.Sum(p => p.ParticipantCount),
-                        MaxParticipants = materialized.MaxParticipants,
-                        IsCurrentUserRegistered = currentUserId > 0 && materialized.Participants.Any(p => p.UserId == currentUserId),
-                        AllowMemberRegistration = materialized.AllowMemberRegistration,
-                        AllowGroupRegistration = materialized.AllowGroupRegistration,
-                        AllowParticipantEventSubmission = materialized.AllowParticipantEventSubmission,
-                        IsRecurring = true,
-                        HasMaterializedEvent = true
-                    });
-                }
-                else
-                {
-                    recurringEvents.Add(new TrainingWeekEventVm
-                    {
-                        OccurrenceKey = BuildSeriesKey(item.Id, occurrenceDate),
-                        SeriesId = item.Id,
-                        Title = item.Title,
-                        TrainingRoomId = item.TrainingRoomId,
-                        RoomName = item.TrainingRoom.Name,
-                        RoomColor = item.TrainingRoom.Color,
-                        StartAt = occurrenceDate.ToDateTime(item.StartTime),
-                        EndAt = occurrenceDate.ToDateTime(item.EndTime),
-                        ParticipantCount = 0,
-                        MaxParticipants = item.MaxParticipants,
-                        IsCurrentUserRegistered = false,
-                        AllowMemberRegistration = item.AllowMemberRegistration,
-                        AllowGroupRegistration = item.AllowGroupRegistration,
-                        AllowParticipantEventSubmission = item.AllowParticipantEventSubmission,
-                        IsRecurring = true,
-                        HasMaterializedEvent = false
-                    });
-                }
-            }
-        }
+        var rooms = await GetRoomsAsync(ct);
+        var events = await GetRangeEventsAsync(db, start, end, currentUserId, ct);
 
         return new TrainingWeekVm
         {
             WeekStart = start,
             Days = Enumerable.Range(0, 7).Select(offset => start.AddDays(offset)).ToList(),
             Rooms = rooms,
-            Events = standaloneEvents.Concat(recurringEvents).OrderBy(x => x.StartAt).ToList()
+            Events = events
+        };
+    }
+
+    public async Task<TrainingMonthVm> GetMonthAsync(DateTime date, int currentUserId, CancellationToken ct = default)
+    {
+        await using var db = await _factory.CreateDbContextAsync(ct);
+
+        var monthStart = new DateTime(date.Year, date.Month, 1);
+        var gridStart = StartOfWeek(monthStart);
+        var gridEnd = gridStart.AddDays(42);
+        var events = await GetRangeEventsAsync(db, gridStart, gridEnd, currentUserId, ct);
+
+        return new TrainingMonthVm
+        {
+            MonthStart = monthStart,
+            GridStart = gridStart,
+            Days = Enumerable.Range(0, 42)
+                .Select(offset =>
+                {
+                    var current = gridStart.AddDays(offset);
+                    return new TrainingMonthDayVm
+                    {
+                        Date = current,
+                        IsCurrentMonth = current.Month == monthStart.Month,
+                        IsToday = current.Date == DateTime.Today,
+                        Events = events
+                            .Where(x => x.StartAt.Date <= current.Date && x.EndAt.Date >= current.Date)
+                            .OrderBy(x => x.IsAllDay ? 0 : 1)
+                            .ThenBy(x => x.StartAt)
+                            .ToList()
+                    };
+                })
+                .ToList()
         };
     }
 
@@ -237,10 +156,12 @@ public class TrainingPlannerService
             Title = series.Title,
             Description = series.Description,
             TrainingRoomId = series.TrainingRoomId,
-            RoomName = series.TrainingRoom.Name,
+            RoomName = series.AppliesToAllRooms ? "Alle Räume" : series.TrainingRoom.Name,
             RoomColor = series.TrainingRoom.Color,
             StartAt = startAt,
             EndAt = endAt,
+            AppliesToAllRooms = series.AppliesToAllRooms,
+            IsAllDay = series.IsAllDay,
             OccurrenceDate = startAt.Date,
             MaxParticipants = series.MaxParticipants,
             RecommendedParticipants = series.RecommendedParticipants,
@@ -259,20 +180,16 @@ public class TrainingPlannerService
 
     public async Task<(bool ok, string? error, string? occurrenceKey)> CreateEventsAsync(TrainingEventEditVm vm, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(vm.Title))
-            return (false, "Titel fehlt.", null);
-        if (vm.TrainingRoomId <= 0)
-            return (false, "Bitte einen Raum wählen.", null);
-        if (vm.EndTime <= vm.StartTime)
-            return (false, "Endzeit muss nach der Startzeit liegen.", null);
-        if (vm.MaxParticipants < 0 || vm.RecommendedParticipants < 0)
-            return (false, "Teilnehmerzahlen dürfen nicht negativ sein.", null);
+        var validationError = ValidateEditVm(vm);
+        if (validationError is not null)
+            return (false, validationError, null);
 
         await using var db = await _factory.CreateDbContextAsync(ct);
 
-        var roomExists = await db.TrainingRooms.AnyAsync(x => x.Id == vm.TrainingRoomId && x.IsActive, ct);
-        if (!roomExists)
+        var roomId = await ResolveTrainingRoomIdAsync(db, vm.TrainingRoomId, vm.AppliesToAllRooms, ct);
+        if (!roomId.HasValue)
             return (false, "Raum nicht gefunden.", null);
+        vm.TrainingRoomId = roomId.Value;
 
         var roomConflict = await ValidateRoomAvailabilityAsync(db, vm, ct: ct);
         if (roomConflict is not null)
@@ -285,9 +202,11 @@ public class TrainingPlannerService
                 Title = vm.Title.Trim(),
                 Description = (vm.Description ?? "").Trim(),
                 TrainingRoomId = vm.TrainingRoomId,
+                AppliesToAllRooms = vm.AppliesToAllRooms,
                 StartDate = DateOnly.FromDateTime(vm.Date),
-                StartTime = vm.StartTime,
-                EndTime = vm.EndTime,
+                StartTime = vm.IsAllDay ? TimeOnly.MinValue : vm.StartTime,
+                EndTime = vm.IsAllDay ? new TimeOnly(23, 59) : vm.EndTime,
+                IsAllDay = vm.IsAllDay,
                 RecurrencePattern = vm.RecurrencePattern,
                 RecurrenceInterval = Math.Max(1, vm.RecurrenceInterval),
                 UntilDate = vm.RecurrenceUntil.HasValue ? DateOnly.FromDateTime(vm.RecurrenceUntil.Value) : null,
@@ -310,8 +229,10 @@ public class TrainingPlannerService
             Title = vm.Title.Trim(),
             Description = (vm.Description ?? "").Trim(),
             TrainingRoomId = vm.TrainingRoomId,
-            StartAt = vm.Date.Date.Add(vm.StartTime.ToTimeSpan()),
-            EndAt = vm.Date.Date.Add(vm.EndTime.ToTimeSpan()),
+            AppliesToAllRooms = vm.AppliesToAllRooms,
+            StartAt = GetEventStartAt(vm),
+            EndAt = GetEventEndAt(vm),
+            IsAllDay = vm.IsAllDay,
             MaxParticipants = vm.MaxParticipants,
             RecommendedParticipants = vm.RecommendedParticipants,
             AllowMemberRegistration = vm.AllowMemberRegistration,
@@ -336,6 +257,11 @@ public class TrainingPlannerService
         if (entity is null)
             return (false, "Nur einzelne Termine können direkt bearbeitet werden.");
 
+        var roomId = await ResolveTrainingRoomIdAsync(db, vm.TrainingRoomId, vm.AppliesToAllRooms, ct);
+        if (!roomId.HasValue)
+            return (false, "Raum nicht gefunden.");
+        vm.TrainingRoomId = roomId.Value;
+
         var roomConflict = await ValidateRoomAvailabilityAsync(db, vm, excludeEventId: eventId, ct: ct);
         if (roomConflict is not null)
             return (false, roomConflict);
@@ -343,8 +269,10 @@ public class TrainingPlannerService
         entity.Title = vm.Title.Trim();
         entity.Description = (vm.Description ?? "").Trim();
         entity.TrainingRoomId = vm.TrainingRoomId;
-        entity.StartAt = vm.Date.Date.Add(vm.StartTime.ToTimeSpan());
-        entity.EndAt = vm.Date.Date.Add(vm.EndTime.ToTimeSpan());
+        entity.AppliesToAllRooms = vm.AppliesToAllRooms;
+        entity.StartAt = GetEventStartAt(vm);
+        entity.EndAt = GetEventEndAt(vm);
+        entity.IsAllDay = vm.IsAllDay;
         entity.MaxParticipants = vm.MaxParticipants;
         entity.RecommendedParticipants = vm.RecommendedParticipants;
         entity.AllowMemberRegistration = vm.AllowMemberRegistration;
@@ -369,9 +297,10 @@ public class TrainingPlannerService
         if (series is null)
             return (false, "Serie nicht gefunden.", null);
 
-        var roomExists = await db.TrainingRooms.AnyAsync(x => x.Id == vm.TrainingRoomId && x.IsActive, ct);
-        if (!roomExists)
+        var roomId = await ResolveTrainingRoomIdAsync(db, vm.TrainingRoomId, vm.AppliesToAllRooms, ct);
+        if (!roomId.HasValue)
             return (false, "Raum nicht gefunden.", null);
+        vm.TrainingRoomId = roomId.Value;
 
         var roomConflict = await ValidateRoomAvailabilityAsync(db, vm, excludeSeriesId: seriesId, candidateSeriesStartDate: series.StartDate, ct: ct);
         if (roomConflict is not null)
@@ -391,8 +320,10 @@ public class TrainingPlannerService
             item.Title = series.Title;
             item.Description = series.Description;
             item.TrainingRoomId = series.TrainingRoomId;
+            item.AppliesToAllRooms = series.AppliesToAllRooms;
             item.StartAt = occurrenceDate.ToDateTime(series.StartTime);
             item.EndAt = occurrenceDate.ToDateTime(series.EndTime);
+            item.IsAllDay = series.IsAllDay;
             item.MaxParticipants = series.MaxParticipants;
             item.RecommendedParticipants = series.RecommendedParticipants;
             item.AllowMemberRegistration = series.AllowMemberRegistration;
@@ -421,9 +352,10 @@ public class TrainingPlannerService
         if (series is null)
             return (false, "Serie nicht gefunden.", null);
 
-        var roomExists = await db.TrainingRooms.AnyAsync(x => x.Id == vm.TrainingRoomId && x.IsActive, ct);
-        if (!roomExists)
+        var roomId = await ResolveTrainingRoomIdAsync(db, vm.TrainingRoomId, vm.AppliesToAllRooms, ct);
+        if (!roomId.HasValue)
             return (false, "Raum nicht gefunden.", null);
+        vm.TrainingRoomId = roomId.Value;
 
         var splitDate = DateOnly.FromDateTime(fromOccurrenceDate);
         if (!IsOccurrencePartOfSeries(series, splitDate))
@@ -460,8 +392,10 @@ public class TrainingPlannerService
             item.Title = newSeries.Title;
             item.Description = newSeries.Description;
             item.TrainingRoomId = newSeries.TrainingRoomId;
+            item.AppliesToAllRooms = newSeries.AppliesToAllRooms;
             item.StartAt = occurrenceDate.ToDateTime(newSeries.StartTime);
             item.EndAt = occurrenceDate.ToDateTime(newSeries.EndTime);
+            item.IsAllDay = newSeries.IsAllDay;
             item.MaxParticipants = newSeries.MaxParticipants;
             item.RecommendedParticipants = newSeries.RecommendedParticipants;
             item.AllowMemberRegistration = newSeries.AllowMemberRegistration;
@@ -696,10 +630,12 @@ public class TrainingPlannerService
                 Title = x.Title,
                 Description = x.Description,
                 TrainingRoomId = x.TrainingRoomId,
-                RoomName = x.TrainingRoom.Name,
+                RoomName = x.AppliesToAllRooms ? "Alle Räume" : x.TrainingRoom.Name,
                 RoomColor = x.TrainingRoom.Color,
                 StartAt = x.StartAt,
                 EndAt = x.EndAt,
+                AppliesToAllRooms = x.AppliesToAllRooms,
+                IsAllDay = x.IsAllDay,
                 OccurrenceDate = x.StartAt.Date,
                 MaxParticipants = x.MaxParticipants,
                 RecommendedParticipants = x.RecommendedParticipants,
@@ -738,10 +674,12 @@ public class TrainingPlannerService
             Title = item.Title,
             Description = item.Description,
             TrainingRoomId = item.TrainingRoomId,
-            RoomName = series.TrainingRoom.Name,
+            RoomName = item.AppliesToAllRooms ? "Alle Räume" : series.TrainingRoom.Name,
             RoomColor = series.TrainingRoom.Color,
             StartAt = item.StartAt,
             EndAt = item.EndAt,
+            AppliesToAllRooms = item.AppliesToAllRooms,
+            IsAllDay = item.IsAllDay,
             OccurrenceDate = item.StartAt.Date,
             MaxParticipants = item.MaxParticipants,
             RecommendedParticipants = item.RecommendedParticipants,
@@ -821,10 +759,12 @@ public class TrainingPlannerService
             Title = series.Title,
             Description = series.Description,
             TrainingRoomId = series.TrainingRoomId,
+            AppliesToAllRooms = series.AppliesToAllRooms,
             TrainingSeriesId = series.Id,
             OccurrenceDate = parsed.OccurrenceDate.Value,
             StartAt = parsed.OccurrenceDate.Value.ToDateTime(series.StartTime),
             EndAt = parsed.OccurrenceDate.Value.ToDateTime(series.EndTime),
+            IsAllDay = series.IsAllDay,
             MaxParticipants = series.MaxParticipants,
             RecommendedParticipants = series.RecommendedParticipants,
             AllowMemberRegistration = series.AllowMemberRegistration,
@@ -835,6 +775,132 @@ public class TrainingPlannerService
         db.TrainingEvents.Add(created);
         await db.SaveChangesAsync(ct);
         return created;
+    }
+
+    private async Task<List<TrainingWeekEventVm>> GetRangeEventsAsync(
+        AppDbContext db,
+        DateTime rangeStart,
+        DateTime rangeEnd,
+        int currentUserId,
+        CancellationToken ct)
+    {
+        var startDate = DateOnly.FromDateTime(rangeStart);
+        var endDate = DateOnly.FromDateTime(rangeEnd.AddDays(-1));
+
+        var standaloneEvents = await db.TrainingEvents
+            .Where(x => x.TrainingSeriesId == null && x.StartAt < rangeEnd && x.EndAt >= rangeStart)
+            .OrderBy(x => x.StartAt)
+            .Select(x => new TrainingWeekEventVm
+            {
+                OccurrenceKey = BuildSingleKey(x.Id),
+                EventId = x.Id,
+                Title = x.Title,
+                TrainingRoomId = x.TrainingRoomId,
+                RoomName = x.AppliesToAllRooms ? "Alle Räume" : x.TrainingRoom.Name,
+                RoomColor = x.TrainingRoom.Color,
+                StartAt = x.StartAt,
+                EndAt = x.EndAt,
+                AppliesToAllRooms = x.AppliesToAllRooms,
+                IsAllDay = x.IsAllDay,
+                ParticipantCount = x.Participants.Sum(p => p.ParticipantCount),
+                MaxParticipants = x.MaxParticipants,
+                IsCurrentUserRegistered = currentUserId > 0 && x.Participants.Any(p => p.UserId == currentUserId),
+                AllowMemberRegistration = x.AllowMemberRegistration,
+                AllowGroupRegistration = x.AllowGroupRegistration,
+                AllowParticipantEventSubmission = x.AllowParticipantEventSubmission,
+                IsRecurring = false,
+                HasMaterializedEvent = true
+            })
+            .ToListAsync(ct);
+
+        var series = await db.TrainingSeries
+            .Where(x => x.IsActive &&
+                        x.StartDate <= endDate &&
+                        (!x.UntilDate.HasValue || x.UntilDate.Value >= startDate))
+            .Include(x => x.TrainingRoom)
+            .Include(x => x.Exceptions.Where(e => e.OccurrenceDate >= startDate && e.OccurrenceDate <= endDate))
+            .Include(x => x.MaterializedEvents.Where(e => e.OccurrenceDate.HasValue &&
+                                                          e.OccurrenceDate.Value >= startDate &&
+                                                          e.OccurrenceDate.Value <= endDate))
+                .ThenInclude(e => e.Participants)
+            .ToListAsync(ct);
+
+        var recurringEvents = new List<TrainingWeekEventVm>();
+
+        foreach (var item in series)
+        {
+            var exceptionDates = item.Exceptions
+                .Where(x => x.IsCancelled)
+                .Select(x => x.OccurrenceDate)
+                .ToHashSet();
+
+            var materializedMap = item.MaterializedEvents
+                .Where(x => x.OccurrenceDate.HasValue)
+                .ToDictionary(x => x.OccurrenceDate!.Value, x => x);
+
+            foreach (var occurrenceDate in ExpandSeriesOccurrences(item, startDate, endDate))
+            {
+                if (exceptionDates.Contains(occurrenceDate))
+                    continue;
+
+                if (materializedMap.TryGetValue(occurrenceDate, out var materialized))
+                {
+                    recurringEvents.Add(new TrainingWeekEventVm
+                    {
+                        OccurrenceKey = BuildSeriesKey(item.Id, occurrenceDate),
+                        EventId = materialized.Id,
+                        SeriesId = item.Id,
+                        Title = materialized.Title,
+                        TrainingRoomId = materialized.TrainingRoomId,
+                        RoomName = materialized.AppliesToAllRooms ? "Alle Räume" : item.TrainingRoom.Name,
+                        RoomColor = item.TrainingRoom.Color,
+                        StartAt = materialized.StartAt,
+                        EndAt = materialized.EndAt,
+                        AppliesToAllRooms = materialized.AppliesToAllRooms,
+                        IsAllDay = materialized.IsAllDay,
+                        ParticipantCount = materialized.Participants.Sum(p => p.ParticipantCount),
+                        MaxParticipants = materialized.MaxParticipants,
+                        IsCurrentUserRegistered = currentUserId > 0 && materialized.Participants.Any(p => p.UserId == currentUserId),
+                        AllowMemberRegistration = materialized.AllowMemberRegistration,
+                        AllowGroupRegistration = materialized.AllowGroupRegistration,
+                        AllowParticipantEventSubmission = materialized.AllowParticipantEventSubmission,
+                        IsRecurring = true,
+                        HasMaterializedEvent = true
+                    });
+                }
+                else
+                {
+                    var startAt = occurrenceDate.ToDateTime(item.StartTime);
+                    var endAt = item.IsAllDay
+                        ? occurrenceDate.ToDateTime(new TimeOnly(23, 59))
+                        : occurrenceDate.ToDateTime(item.EndTime);
+
+                    recurringEvents.Add(new TrainingWeekEventVm
+                    {
+                        OccurrenceKey = BuildSeriesKey(item.Id, occurrenceDate),
+                        SeriesId = item.Id,
+                        Title = item.Title,
+                        TrainingRoomId = item.TrainingRoomId,
+                        RoomName = item.AppliesToAllRooms ? "Alle Räume" : item.TrainingRoom.Name,
+                        RoomColor = item.TrainingRoom.Color,
+                        StartAt = startAt,
+                        EndAt = endAt,
+                        AppliesToAllRooms = item.AppliesToAllRooms,
+                        IsAllDay = item.IsAllDay,
+                        ParticipantCount = 0,
+                        MaxParticipants = item.MaxParticipants,
+                        IsCurrentUserRegistered = false,
+                        AllowMemberRegistration = item.AllowMemberRegistration,
+                        AllowGroupRegistration = item.AllowGroupRegistration,
+                        AllowParticipantEventSubmission = item.AllowParticipantEventSubmission,
+                        IsRecurring = true,
+                        HasMaterializedEvent = false
+                    });
+                }
+            }
+        }
+
+        return standaloneEvents.Concat(recurringEvents).OrderBy(x => x.StartAt).ThenBy(x => x.Title).ToList();
     }
 
     private static IEnumerable<DateOnly> ExpandSeriesOccurrences(TrainingSeries series, DateOnly from, DateOnly to)
@@ -879,13 +945,13 @@ public class TrainingPlannerService
         DateOnly? candidateSeriesStartDate = null,
         CancellationToken ct = default)
     {
+        var startAt = GetEventStartAt(vm);
+        var endAt = GetEventEndAt(vm);
+
         if (!vm.IsRecurring)
         {
-            var startAt = vm.Date.Date.Add(vm.StartTime.ToTimeSpan());
-            var endAt = vm.Date.Date.Add(vm.EndTime.ToTimeSpan());
-
             var eventConflict = await db.TrainingEvents.AnyAsync(x =>
-                x.TrainingRoomId == vm.TrainingRoomId &&
+                (x.AppliesToAllRooms || vm.AppliesToAllRooms || x.TrainingRoomId == vm.TrainingRoomId) &&
                 (!excludeEventId.HasValue || x.Id != excludeEventId.Value) &&
                 (!excludeSeriesId.HasValue || x.TrainingSeriesId != excludeSeriesId.Value) &&
                 x.StartAt < endAt &&
@@ -897,12 +963,12 @@ public class TrainingPlannerService
             var occurrenceDate = DateOnly.FromDateTime(vm.Date);
             var seriesConflict = await db.TrainingSeries
                 .Where(x => x.IsActive &&
-                            x.TrainingRoomId == vm.TrainingRoomId &&
+                            (x.AppliesToAllRooms || vm.AppliesToAllRooms || x.TrainingRoomId == vm.TrainingRoomId) &&
                             (!excludeSeriesId.HasValue || x.Id != excludeSeriesId.Value))
                 .ToListAsync(ct);
 
 
-            var Series = seriesConflict.FirstOrDefault(x => SeriesContainsDate(x, occurrenceDate) && TimesOverlap(vm.StartTime, vm.EndTime, x.StartTime, x.EndTime));
+            var Series = seriesConflict.FirstOrDefault(x => SeriesContainsDate(x, occurrenceDate) && TimesOverlap(GetSeriesStartTime(vm), GetSeriesEndTime(vm), x.StartTime, x.EndTime));
             if (Series is null) return null;
             if (db.TrainingSeriesExceptions.Any(x => x.TrainingSeriesId == Series.Id && x.OccurrenceDate == occurrenceDate)) return null;
             return "Der Raum ist in diesem Zeitraum bereits durch eine Serie belegt.";
@@ -911,9 +977,11 @@ public class TrainingPlannerService
         var candidate = new TrainingSeries
         {
             TrainingRoomId = vm.TrainingRoomId,
+            AppliesToAllRooms = vm.AppliesToAllRooms,
             StartDate = candidateSeriesStartDate ?? DateOnly.FromDateTime(vm.Date),
-            StartTime = vm.StartTime,
-            EndTime = vm.EndTime,
+            StartTime = GetSeriesStartTime(vm),
+            EndTime = GetSeriesEndTime(vm),
+            IsAllDay = vm.IsAllDay,
             RecurrencePattern = vm.RecurrencePattern,
             RecurrenceInterval = Math.Max(1, vm.RecurrenceInterval),
             UntilDate = vm.RecurrenceUntil.HasValue ? DateOnly.FromDateTime(vm.RecurrenceUntil.Value) : null,
@@ -926,11 +994,11 @@ public class TrainingPlannerService
         var candidateUntilEnd = candidateUntil?.ToDateTime(new TimeOnly(23, 59, 59));
 
         var conflictingEvents = await db.TrainingEvents
-            .Where(x => x.TrainingRoomId == vm.TrainingRoomId &&
+            .Where(x => (x.AppliesToAllRooms || vm.AppliesToAllRooms || x.TrainingRoomId == vm.TrainingRoomId) &&
                         (!excludeEventId.HasValue || x.Id != excludeEventId.Value) &&
                         (!excludeSeriesId.HasValue || x.TrainingSeriesId != excludeSeriesId.Value) &&
-                        x.StartAt >= candidateFromStart &&
-                        (!candidateUntilEnd.HasValue || x.StartAt <= candidateUntilEnd.Value))
+                        x.StartAt <= (candidateUntilEnd ?? DateTime.MaxValue) &&
+                        x.EndAt >= candidateFromStart)
             .ToListAsync(ct);
 
         foreach (var item in conflictingEvents)
@@ -945,7 +1013,7 @@ public class TrainingPlannerService
 
         var conflictingSeries = await db.TrainingSeries
             .Where(x => x.IsActive &&
-                        x.TrainingRoomId == vm.TrainingRoomId &&
+                        (x.AppliesToAllRooms || vm.AppliesToAllRooms || x.TrainingRoomId == vm.TrainingRoomId) &&
                         (!excludeSeriesId.HasValue || x.Id != excludeSeriesId.Value))
             .ToListAsync(ct);
 
@@ -959,10 +1027,14 @@ public class TrainingPlannerService
     {
         if (string.IsNullOrWhiteSpace(vm.Title))
             return "Titel fehlt.";
-        if (vm.TrainingRoomId <= 0)
+        if (!vm.AppliesToAllRooms && vm.TrainingRoomId <= 0)
             return "Bitte einen Raum wählen.";
-        if (vm.EndTime <= vm.StartTime)
+        if (!vm.IsAllDay && vm.EndTime <= vm.StartTime)
             return "Endzeit muss nach der Startzeit liegen.";
+        if (vm.EndDate.Date < vm.Date.Date)
+            return "Enddatum darf nicht vor dem Startdatum liegen.";
+        if (vm.IsRecurring && vm.IsAllDay && vm.EndDate.Date > vm.Date.Date)
+            return "Mehrtägige Ganztagstermine können aktuell nicht als Serie gespeichert werden.";
         if (vm.MaxParticipants < 0 || vm.RecommendedParticipants < 0)
             return "Teilnehmerzahlen dürfen nicht negativ sein.";
 
@@ -974,9 +1046,11 @@ public class TrainingPlannerService
         series.Title = vm.Title.Trim();
         series.Description = (vm.Description ?? "").Trim();
         series.TrainingRoomId = vm.TrainingRoomId;
+        series.AppliesToAllRooms = vm.AppliesToAllRooms;
         series.StartDate = DateOnly.FromDateTime(vm.Date);
-        series.StartTime = vm.StartTime;
-        series.EndTime = vm.EndTime;
+        series.StartTime = GetSeriesStartTime(vm);
+        series.EndTime = GetSeriesEndTime(vm);
+        series.IsAllDay = vm.IsAllDay;
         series.RecurrencePattern = vm.RecurrencePattern;
         series.RecurrenceInterval = Math.Max(1, vm.RecurrenceInterval);
         series.UntilDate = vm.RecurrenceUntil.HasValue ? DateOnly.FromDateTime(vm.RecurrenceUntil.Value) : null;
@@ -986,6 +1060,42 @@ public class TrainingPlannerService
         series.AllowMemberRegistration = vm.AllowMemberRegistration;
         series.AllowGroupRegistration = vm.AllowGroupRegistration;
         series.AllowParticipantEventSubmission = vm.AllowParticipantEventSubmission;
+    }
+
+    private async Task<int?> ResolveTrainingRoomIdAsync(AppDbContext db, int roomId, bool appliesToAllRooms, CancellationToken ct)
+    {
+        if (!appliesToAllRooms)
+            return await db.TrainingRooms.Where(x => x.Id == roomId && x.IsActive).Select(x => (int?)x.Id).FirstOrDefaultAsync(ct);
+
+        return await db.TrainingRooms
+            .Where(x => x.IsActive)
+            .OrderBy(x => x.SortOrder)
+            .ThenBy(x => x.Name)
+            .Select(x => (int?)x.Id)
+            .FirstOrDefaultAsync(ct);
+    }
+
+    private static DateTime GetEventStartAt(TrainingEventEditVm vm)
+    {
+        return vm.IsAllDay
+            ? vm.Date.Date
+            : vm.Date.Date.Add(vm.StartTime.ToTimeSpan());
+    }
+
+    private static DateTime GetEventEndAt(TrainingEventEditVm vm)
+    {
+        return vm.IsAllDay
+            ? vm.EndDate.Date.AddDays(1).AddTicks(-1)
+            : vm.Date.Date.Add(vm.EndTime.ToTimeSpan());
+    }
+
+    private static TimeOnly GetSeriesStartTime(TrainingEventEditVm vm) => vm.IsAllDay ? TimeOnly.MinValue : vm.StartTime;
+
+    private static TimeOnly GetSeriesEndTime(TrainingEventEditVm vm) => vm.IsAllDay ? new TimeOnly(23, 59) : vm.EndTime;
+
+    private static bool RoomScopeMatches(int existingRoomId, bool existingAllRooms, int candidateRoomId, bool candidateAllRooms)
+    {
+        return existingAllRooms || candidateAllRooms || existingRoomId == candidateRoomId;
     }
 
     private static bool SeriesContainsDate(TrainingSeries series, DateOnly occurrenceDate)

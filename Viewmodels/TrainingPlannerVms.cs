@@ -15,6 +15,21 @@ public class TrainingWeekVm
     public List<TrainingWeekEventVm> Events { get; set; } = new();
 }
 
+public class TrainingMonthVm
+{
+    public DateTime MonthStart { get; set; }
+    public DateTime GridStart { get; set; }
+    public List<TrainingMonthDayVm> Days { get; set; } = new();
+}
+
+public class TrainingMonthDayVm
+{
+    public DateTime Date { get; set; }
+    public bool IsCurrentMonth { get; set; }
+    public bool IsToday { get; set; }
+    public List<TrainingWeekEventVm> Events { get; set; } = new();
+}
+
 public class TrainingWeekEventVm
 {
     public string OccurrenceKey { get; set; } = "";
@@ -26,6 +41,8 @@ public class TrainingWeekEventVm
     public string RoomColor { get; set; } = "#2563eb";
     public DateTime StartAt { get; set; }
     public DateTime EndAt { get; set; }
+    public bool AppliesToAllRooms { get; set; }
+    public bool IsAllDay { get; set; }
     public int ParticipantCount { get; set; }
     public int MaxParticipants { get; set; }
     public bool IsCurrentUserRegistered { get; set; }
@@ -48,6 +65,8 @@ public class TrainingEventDetailVm
     public string RoomColor { get; set; } = "#2563eb";
     public DateTime StartAt { get; set; }
     public DateTime EndAt { get; set; }
+    public bool AppliesToAllRooms { get; set; }
+    public bool IsAllDay { get; set; }
     public int MaxParticipants { get; set; }
     public int RecommendedParticipants { get; set; }
     public int ParticipantCount { get; set; }
@@ -80,7 +99,10 @@ public class TrainingEventEditVm
     public string Title { get; set; } = "";
     public string Description { get; set; } = "";
     public int TrainingRoomId { get; set; }
+    public bool AppliesToAllRooms { get; set; }
+    public bool IsAllDay { get; set; }
     public DateTime Date { get; set; } = DateTime.Today;
+    public DateTime EndDate { get; set; } = DateTime.Today;
     public TimeOnly StartTime { get; set; } = new(18, 0);
     public TimeOnly EndTime { get; set; } = new(19, 30);
     public int MaxParticipants { get; set; }
