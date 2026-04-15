@@ -44,12 +44,14 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 
 builder.Services.AddDbContextFactory<AppDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
+builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("Smtp"));
 // ------------------------------------------
 //  3. Eigene Services registrieren
 // ------------------------------------------
 builder.Services.AddScoped<TimeEntryService>()
                 .AddScoped<UserStatsService>()
                 .AddScoped<UserService>()
+                .AddScoped<SecretCodeMailer>()
                 .AddScoped<SeasonService>()
                 .AddScoped<ImpressumService>()
                 .AddScoped<PrivacyPolicyService>()

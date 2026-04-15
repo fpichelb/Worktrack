@@ -281,7 +281,7 @@
             var current = GetCurrentHours(u.Id);
             var total = u.ArchivedHours + current;
 
-            sb.AppendLine($"{Escape(u.Name)},{Escape(u.Email)},{Escape(u.SecretCode)},{u.Role},{u.ShareStats},{u.ArchivedHours:0.0},{current:0.0},{total:0.0}");
+            sb.AppendLine($"{Escape(u.Name)};{Escape(u.Email)};{Escape(u.SecretCode)};{u.Role};{u.ShareStats};{u.ArchivedHours:0.0};{current:0.0};{total:0.0}");
         }
 
         var bytes = Encoding.UTF8.GetBytes(sb.ToString());

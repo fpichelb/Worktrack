@@ -1,0 +1,84 @@
+@page "/getyourcode"
+@rendermode InteractiveServer
+
+@inject UserService UserService
+
+<PageTitle>Secret Code anfordern</PageTitle>
+
+<div class="card" style="max-width: 540px; margin: 2rem auto;">
+    <h2>Secret Code anfordern</h2>
+    <p class="text-muted">Trage deinen Namen und deine eigene E-Mail-Adresse ein. Wenn die Angaben plausibel zu einem bestehenden Konto passen, senden wir den Secret Code direkt an diese Adresse und speichern deine E-Mail unter deinem Konto ab für Zukünftige anfragen.</p>
+    <EditForm Model="this" OnValidSubmit="SubmitAsync">
+        <div class="form-group">
+            <label for="code-name">Name</label>
+            <InputText id="code-name" class="form-control" @bind-Value="Name" />
+        </div>
+
+        <div class="form-group">
+            <label for="code-mail">E-Mail</label>
+            <InputText id="code-mail" class="form-control" @bind-Value="Email" type="email" />
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(StatusMessage))
+        {
+            <div class="@StatusCss" style="margin: 1rem 0;">
+                @StatusMessage
+            </div>
+        }
+        <p class= "text-muted"><small>Wenn sie den Code anfordern, geben sie ihr Einverständnis für die Speicherung ihrer E-Mail</small></p>
+        <button class="btn btn-outline-primary" type="submit" disabled="@IsSubmitting">
+            @(IsSubmitting ? "Wird versendet..." : "Code anfordern")
+        </button>
+    </EditForm>
+</div>
+
+@code {
+    private string Name { get; set; } = string.Empty;
+    private string Email { get; set; } = string.Empty;
+    private string StatusMessage { get; set; } = string.Empty;
+    private string StatusCss { get; set; } = "alert alert-info";
+    private bool IsSubmitting { get; set; }
+
+    private async Task SubmitAsync()
+    {
+        if (IsSubmitting) return;
+
+        IsSubmitting = true;
+        StatusMessage = string.Empty;
+
+        try
+        {
+            var result = await UserService.RequestSecretCodeAsync(Name, Email);
+
+            if (result.IsSuccess)
+            {
+                StatusCss = "alert alert-success";
+                StatusMessage = result.Message;
+            }
+            else if (result.RequiresManualReview)
+            {
+                StatusCss = "alert alert-warning";
+                StatusMessage = result.Message;
+            }
+            else
+            {
+                StatusCss = "alert alert-danger";
+                StatusMessage = result.Message;
+            }
+        }
+        catch (TimeoutException ex)
+        {
+            StatusCss = "alert alert-danger";
+            StatusMessage = $"{ex.Message} Bitte SMTP-Konfiguration prüfen oder den Administrator kontaktieren.";
+        }
+        catch (Exception ex)
+        {
+            StatusCss = "alert alert-danger";
+            StatusMessage = $"Der Versand ist aktuell nicht verfügbar: {ex.Message}";
+        }
+        finally
+        {
+            IsSubmitting = false;
+        }
+    }
+}
