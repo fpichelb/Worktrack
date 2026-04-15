@@ -3,6 +3,9 @@
 @using Microsoft.VisualBasic
 @inject NavigationManager Nav
 @inject NewsService NService
+@inject UserService UService
+@inject UserStatsService UserStatsService
+@inject ToastService Toasts
 
 <h2>User Dashboard</h2>
 
@@ -108,6 +111,20 @@ else
             </div>
         </div>
 
+        <div class="card">
+            <h3>Login-Code</h3>
+            <p>Wenn du möchtest, kannst du dir einen neuen Secret Code erzeugen. Der bisherige Code wird dadurch sofort ungültig.</p>
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <button class="btn btn-outline-warning" disabled="@_regeneratingCode" @onclick="RegenerateSecretCode">
+                    @(_regeneratingCode ? "Wird neu erzeugt..." : "Secret Code neu generieren")
+                </button>
+                @if (!string.IsNullOrWhiteSpace(_newSecretCodeInfo))
+                {
+                    <span class="text-muted">@_newSecretCodeInfo</span>
+                }
+            </div>
+        </div>
+
         <!-- MY EVENTS -->
         <div class="card">
             <h3>Meine Events</h3>
@@ -137,7 +154,7 @@ else
                                     <td>@ev.EventName</td>
                                     <td>@ev.Location</td>
                                     <td>@ev.Date.ToShortDateString()</td>
-                                    <td>@ev.Desc</td>
+                                    <td>@ev.Description</td>
                                     <td>@ev.Hours.ToString("0.0")</td>
                                 </tr>
                             }
@@ -166,13 +183,14 @@ else
     [CascadingParameter]
     private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
     private User? CurrentUser;
-    private List<TimeEntry> UserEntries = new();
-    private List<EventStatsModel> MyEventStats = new();
+    private List<UserDashboardEventVm> MyEventStats = new();
     private bool _loaded;
     private List<NewsItem> _news =new List<NewsItem>();
     private double TotalHours = 0;
     private int EventsVisited = 0;
     private string UserLoginUrl="/user/login";
+    private bool _regeneratingCode;
+    private string _newSecretCodeInfo = "";
     
 
     protected override async Task OnParametersSetAsync()
@@ -194,12 +212,15 @@ else
         return;
         }
 
-    CurrentUser = await UService.GetUserByStringId(userId);
+    if (!int.TryParse(userId, out var parsedUserId))
+        return;
+
+    await LoadDashboardAsync(parsedUserId);
     if (CurrentUser is null)
         return;
-    _loaded = true;   
-    _news=await NService.ListPinnedForDashboardAsync(); 
-    await LoadStats();    
+
+    _loaded = true;
+    _news=await NService.ListPinnedForDashboardAsync();
     
    
 }
@@ -213,34 +234,43 @@ else
 
     }
 
-    private async Task LoadStats()
+    private async Task LoadDashboardAsync(int userId)
     {
-        if(CurrentUser is null)return;
-        UserEntries = await TEService.GetActiveEntriesForUserAsync(CurrentUser.Id);
+        var dashboard = await UserStatsService.GetDashboardAsync(userId);
+        if (dashboard is null)
+            return;
 
-        TotalHours = UserEntries.Sum(e =>
-        e.DurationHours ?? 0);
+        CurrentUser = dashboard.User;
+        TotalHours = dashboard.TotalHours;
+        EventsVisited = dashboard.EventsVisited;
+        MyEventStats = dashboard.Events;
+    }
 
-        if (!(CurrentUser is null))
-            TotalHours += CurrentUser.BonusHours;
+    private async Task RegenerateSecretCode()
+    {
+        if (CurrentUser is null || _regeneratingCode)
+            return;
 
-        EventsVisited = UserEntries
-        .Select(e => e.EventId)
-        .Distinct()
-        .Count();
+        _regeneratingCode = true;
+        _newSecretCodeInfo = "";
 
-        MyEventStats = UserEntries
-        .Select(g => new EventStatsModel
+        try
         {
-            EventId = g.Id,
-            EventName = g.Event!.Name,
-            Location = g.Event!.Location,
-            Date = g.CheckIn ?? DateTime.MinValue,
-            Hours = g.DurationHours ?? 0,
-            Desc = g.Task??""
-        })
-        .OrderByDescending(x => x.Date)
-        .ToList();
+            var (ok, error, newCode) = await UService.RegenerateSecretCodeAsync(CurrentUser.Id);
+            if (!ok)
+            {
+                Toasts.ShowError("Fehler", error ?? "Secret Code konnte nicht neu erzeugt werden.");
+                return;
+            }
+
+            CurrentUser.SecretCode = newCode ?? CurrentUser.SecretCode;
+            _newSecretCodeInfo = $"Neuer Code: {CurrentUser.SecretCode}";
+            Toasts.ShowSuccess("Secret Code aktualisiert", "Dein bisheriger Code ist nicht mehr gültig.");
+        }
+        finally
+        {
+            _regeneratingCode = false;
+        }
     }
 
 
@@ -249,13 +279,4 @@ else
         Nav.NavigateTo("/auth/logout", forceLoad: true);
     }
 
-    public class EventStatsModel
-    {
-        public int EventId { get; set; }
-        public string EventName { get; set; } = "";
-        public string Location { get; set; } = "";
-        public DateTime Date { get; set; }
-        public String Desc { get; set; }="";
-        public double Hours { get; set; }
-    }
 }

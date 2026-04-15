@@ -114,6 +114,22 @@ namespace Worktrack.Services
             return user;
         }
 
+        public async Task<(bool ok, string? error, string? newCode)> RegenerateSecretCodeAsync(int userId, CancellationToken ct = default)
+        {
+            if (userId <= 0)
+                return (false, "Benutzer nicht gefunden.", null);
+
+            await using var db = await _factory.CreateDbContextAsync(ct);
+            var user = await db.Users.FirstOrDefaultAsync(x => x.Id == userId, ct);
+            if (user is null)
+                return (false, "Benutzer nicht gefunden.", null);
+
+            user.SecretCode = await GenerateUniqueCodeAsync();
+            await db.SaveChangesAsync(ct);
+
+            return (true, null, user.SecretCode);
+        }
+
         public async Task<CodeRequestResult> RequestSecretCodeAsync(string enteredName, string email, CancellationToken ct = default)
         {
             var normalizedName = NormalizeLoose(enteredName);

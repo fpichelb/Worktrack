@@ -83,6 +83,48 @@ public class UserStatsService
         return list.FirstOrDefault(u => u.Id == userId);
     }
 
+    public async Task<UserDashboardVm?> GetDashboardAsync(int userId, CancellationToken ct = default)
+    {
+        await using var db = await _factory.CreateDbContextAsync(ct);
+
+        var user = await db.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == userId, ct);
+        if (user is null)
+            return null;
+
+        var entries = await db.TimeEntry
+            .AsNoTracking()
+            .Where(e => e.UserId == userId && e.CheckOut != null && !e.IsArchived)
+            .Include(e => e.Event)
+            .ToListAsync(ct);
+
+        var totalHours = entries.Sum(e => e.DurationHours ?? 0) + user.BonusHours;
+        var eventsVisited = entries
+            .Select(e => e.EventId)
+            .Distinct()
+            .Count();
+
+        return new UserDashboardVm
+        {
+            User = user,
+            TotalHours = totalHours,
+            EventsVisited = eventsVisited,
+            Events = entries
+                .Select(g => new UserDashboardEventVm
+                {
+                    EventId = g.Id,
+                    EventName = g.Event?.Name ?? "",
+                    Location = g.Event?.Location ?? "",
+                    Date = g.CheckIn ?? DateTime.MinValue,
+                    Hours = g.DurationHours ?? 0,
+                    Description = g.Task ?? ""
+                })
+                .OrderByDescending(x => x.Date)
+                .ToList()
+        };
+    }
+
     private static int CalculateStreak(List<TimeEntry> entries)
     {
         var daysWorked = entries
@@ -121,3 +163,21 @@ public class UserStatsViewModel
 }
 
 public record Achievement(string Label, string Color);
+
+public class UserDashboardVm
+{
+    public User User { get; set; } = new();
+    public double TotalHours { get; set; }
+    public int EventsVisited { get; set; }
+    public List<UserDashboardEventVm> Events { get; set; } = new();
+}
+
+public class UserDashboardEventVm
+{
+    public int EventId { get; set; }
+    public string EventName { get; set; } = "";
+    public string Location { get; set; } = "";
+    public DateTime Date { get; set; }
+    public string Description { get; set; } = "";
+    public double Hours { get; set; }
+}
