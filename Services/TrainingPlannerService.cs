@@ -19,6 +19,7 @@ public class TrainingPlannerService
         await using var db = await _factory.CreateDbContextAsync(ct);
 
         return await db.TrainingRooms
+            .AsNoTracking()
             .Where(x => x.IsActive)
             .OrderBy(x => x.SortOrder)
             .ThenBy(x => x.Name)
@@ -96,6 +97,7 @@ public class TrainingPlannerService
         {
             MonthStart = monthStart,
             GridStart = gridStart,
+            Events = events,
             Days = Enumerable.Range(0, 42)
                 .Select(offset =>
                 {
@@ -104,12 +106,7 @@ public class TrainingPlannerService
                     {
                         Date = current,
                         IsCurrentMonth = current.Month == monthStart.Month,
-                        IsToday = current.Date == DateTime.Today,
-                        Events = events
-                            .Where(x => x.StartAt.Date <= current.Date && x.EndAt.Date >= current.Date)
-                            .OrderBy(x => x.IsAllDay ? 0 : 1)
-                            .ThenBy(x => x.StartAt)
-                            .ToList()
+                        IsToday = current.Date == DateTime.Today
                     };
                 })
                 .ToList()
@@ -788,6 +785,7 @@ public class TrainingPlannerService
         var endDate = DateOnly.FromDateTime(rangeEnd.AddDays(-1));
 
         var standaloneEvents = await db.TrainingEvents
+            .AsNoTracking()
             .Where(x => x.TrainingSeriesId == null && x.StartAt < rangeEnd && x.EndAt >= rangeStart)
             .OrderBy(x => x.StartAt)
             .Select(x => new TrainingWeekEventVm
@@ -814,6 +812,7 @@ public class TrainingPlannerService
             .ToListAsync(ct);
 
         var series = await db.TrainingSeries
+            .AsNoTracking()
             .Where(x => x.IsActive &&
                         x.StartDate <= endDate &&
                         (!x.UntilDate.HasValue || x.UntilDate.Value >= startDate))
@@ -907,19 +906,30 @@ public class TrainingPlannerService
     {
         if (!series.IsActive)
             yield break;
+        if (!string.Equals(series.RecurrencePattern, "weekly", StringComparison.OrdinalIgnoreCase))
+            yield break;
+
+        var intervalWeeks = Math.Max(1, series.RecurrenceInterval);
+        var intervalDays = intervalWeeks * 7;
+        var until = series.UntilDate ?? to;
+        if (series.StartDate > to || until < from)
+            yield break;
 
         var current = series.StartDate;
-        var until = series.UntilDate ?? to;
+        if (current < from)
+        {
+            var daysBetween = from.DayNumber - current.DayNumber;
+            var intervalsToSkip = daysBetween / intervalDays;
+            current = current.AddDays(intervalsToSkip * intervalDays);
+
+            while (current < from)
+                current = current.AddDays(intervalDays);
+        }
 
         while (current <= to && current <= until)
         {
-            if (current >= from)
-                yield return current;
-
-            if (!string.Equals(series.RecurrencePattern, "weekly", StringComparison.OrdinalIgnoreCase))
-                yield break;
-
-            current = current.AddDays(Math.Max(1, series.RecurrenceInterval) * 7);
+            yield return current;
+            current = current.AddDays(intervalDays);
         }
     }
 

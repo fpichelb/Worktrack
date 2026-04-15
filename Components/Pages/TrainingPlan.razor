@@ -675,8 +675,16 @@ else
         try
         {
             _currentWeekStart = StartOfWeek(_anchorDate);
-            _week = await TrainingPlannerService.GetWeekAsync(_currentWeekStart, _currentUserId);
-            _month = await TrainingPlannerService.GetMonthAsync(_anchorDate, _currentUserId);
+            if (_calendarView == "month")
+            {
+                _week.Rooms = await TrainingPlannerService.GetRoomsAsync();
+                _month = await TrainingPlannerService.GetMonthAsync(_anchorDate, _currentUserId);
+            }
+            else
+            {
+                _week = await TrainingPlannerService.GetWeekAsync(_currentWeekStart, _currentUserId);
+            }
+
             EnsureSelectedRoom();
         }
         catch (Exception ex)
@@ -713,10 +721,11 @@ else
                 return new TimeOnly(21, 0);
 
             var maxEnd = weekEvents.Max(x => TimeOnly.FromDateTime(x.EndAt));
-            var roundedEnd = new TimeOnly(maxEnd.Hour, 0);
+            var roundedHour = maxEnd.Hour;
             if (maxEnd.Minute > 0 || maxEnd.Second > 0)
-                roundedEnd = roundedEnd.AddHours(1);
-            return roundedEnd;
+                roundedHour = Math.Min(23, roundedHour + 1);
+
+            return new TimeOnly(roundedHour, 0);
         }
     }
 
@@ -733,8 +742,9 @@ else
     {
         get
         {
-            for (var current = CalendarStart; current <= CalendarEnd; current = current.AddHours(1))
-                yield return current;
+            var totalHours = (int)Math.Floor((CalendarEnd.ToTimeSpan() - CalendarStart.ToTimeSpan()).TotalHours);
+            for (var hourOffset = 0; hourOffset <= totalHours; hourOffset++)
+                yield return CalendarStart.AddHours(hourOffset);
         }
     }
 
@@ -769,7 +779,8 @@ else
 
     private IEnumerable<TrainingWeekEventVm> GetMonthDayEvents(TrainingMonthDayVm day)
     {
-        return day.Events
+        return _month.Events
+            .Where(x => x.StartAt.Date <= day.Date && x.EndAt.Date >= day.Date)
             .Where(x => SelectedRoomId == AllRoomsId || x.AppliesToAllRooms || x.TrainingRoomId == SelectedRoomId)
             .OrderBy(x => x.IsAllDay ? 0 : 1)
             .ThenBy(x => x.StartAt)

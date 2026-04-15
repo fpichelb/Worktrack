@@ -20,6 +20,7 @@ public class TrainingMonthVm
     public DateTime MonthStart { get; set; }
     public DateTime GridStart { get; set; }
     public List<TrainingMonthDayVm> Days { get; set; } = new();
+    public List<TrainingWeekEventVm> Events { get; set; } = new();
 }
 
 public class TrainingMonthDayVm
