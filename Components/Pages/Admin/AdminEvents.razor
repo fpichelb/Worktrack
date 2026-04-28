@@ -278,6 +278,7 @@
                             <th>Dauer (h)</th>
                             <th>Status</th>
                             <th>Archiviert</th>
+                            <th>Aktion</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -292,6 +293,12 @@
                                 <td>@((e.DurationHours ?? 0).ToString("0.0"))</td>
                                 <td>@e.Status</td>
                                 <td>@(e.IsArchived ? "Ja" : "Nein")</td>
+                                <td>
+                                    @if (e.IsArchived)
+                                    {
+                                        <button class="btn btn-outline-secondary btn-sm" title="Eintrag entarchivieren" @onclick="() => UnarchiveEntry(e)">⟲</button>
+                                    }
+                                </td>
                             </tr>
                         }
                     </tbody>
@@ -371,6 +378,22 @@
         EventEntries = await TEService.GetEntriesForEventAsync(e.Id);
         Toasts.ShowInfo("Daten geladen", $"Die Teilnahmen an {e.Name} wurden erfolgreich geladen und unten angezeigt");
         StateHasChanged();
+    }
+
+    private async Task UnarchiveEntry(TimeEntry entry)
+    {
+        if (!await TEService.UnarchiveEntryAsync(entry.Id))
+            return;
+
+        entry.IsArchived = false;
+        if (SelectedEvent is not null)
+        {
+            SelectedEvent.IsArchived = false;
+            SelectedEvent.ArchivedAtUtc = null;
+            EventEntries = await TEService.GetEntriesForEventAsync(SelectedEvent.Id);
+        }
+
+        Toasts.ShowSuccess("Eintrag entarchiviert", "Der archivierte TimeEntry wurde wieder aktiviert.");
     }
 
     private async Task CreateEvent()

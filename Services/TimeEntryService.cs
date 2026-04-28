@@ -184,6 +184,26 @@ public class TimeEntryService
         .OrderByDescending(t => t.CheckIn)
         .ToListAsync();
     }
+
+    public async Task<bool> UnarchiveEntryAsync(int entryId)
+    {
+        await using var db = await _factory.CreateDbContextAsync();
+        var entry = await db.TimeEntry.FindAsync(entryId);
+        if (entry is null || !entry.IsArchived)
+            return false;
+
+        entry.IsArchived = false;
+
+        var ev = await db.Events.FindAsync(entry.EventId);
+        if (ev is not null && ev.IsArchived)
+        {
+            ev.IsArchived = false;
+            ev.ArchivedAtUtc = null;
+        }
+
+        await db.SaveChangesAsync();
+        return true;
+    }
     public async Task<bool> IsDuplicate(TimeEntry entry)
     {
         await using var Db = await _factory.CreateDbContextAsync();
@@ -234,7 +254,9 @@ public class TimeEntryService
 
         var users = await Db.Users.ToListAsync();
         var entries = await Db.TimeEntry
-        .Where(e => e.CheckOut != null && !e.IsArchived)
+        .Where(e => e.CheckOut != null &&
+                    !e.IsArchived &&
+                    e.Status != "pending_assignment")
         .ToListAsync();
 
         int archivedEntries = 0;
