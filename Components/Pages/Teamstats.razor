@@ -1,278 +1,169 @@
 @page "/teamstats"
 @attribute [Authorize]
-@using System.Text.RegularExpressions
-@inject AppDbContext Db
+@using Worktrack.ViewModels
 @inject NavigationManager Nav
-@inject SeasonService seasonService
+@inject UserService UService
+@inject TeamStatsService TeamStatsService
 
 <h2>Team Event Statistik</h2>
 <AuthorizeView Context="auth">
     <Authorized>
-@if (Users == null || Events == null)
-{
-    <p>Lade Daten...</p>
-}
-else
-{
-    <!-- GLOBAL TEAM OVERVIEW -->
-    <div class="card">
-        <h3>Team Performance (Gesamtjahr)</h3>
-        <p class="text-gray">Stunden & Eventteilnahmen für alle Mitglieder die sich vergleichen wollen.</p>
-        <div class="table-responsive">
-            <table>
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Name</th>
-                        <th>Events besucht</th>
-                        <th>Gesamtstunden</th>
-                        <th>Achievements</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var u in GlobalStats)
-                    {
-                        <tr>
-                            <td>@u.Rank</td>
-                            <td>@u.Name</td>
-                            <td>@u.EventsVisited</td>
-                            <td>@((u.TotalHours).ToString("0.0")) h</td>
-                            <td>
-                                @foreach (var a in u.Achievements)
-                                {
-                                    <span class = "badge" data-bs-toggle="tooltip" title="@a.tooltip">
-                                      @a.shown
-                                    </span>
-                                }
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!--- SEASON GROUPS -->
-
-    @foreach (var group in SeasonGroups.Keys)
-    {
-        <div class="card">
-            <h3>@group.Name</h3>
-
-            @if (!SeasonGroups[group].Any())
-            {
-                <p>Keine Events in dieser Saison</p>
-            }
-            else
-            {
-                @foreach (var ev in SeasonGroups[group])
-                {
-                    <div style="margin-top:1.5rem;">
-                        <h4>@ev.Name (@ev.Location)</h4>
-                        <p class="text-gray">@ev.StartTime.ToShortDateString()</p>
-
-                        @if (!EventStats.ContainsKey(group.Name))
+        @if (!_loaded)
+        {
+            <p>Lade Daten...</p>
+        }
+        else
+        {
+            <div class="card">
+                <h3>Team Performance (Gesamtjahr)</h3>
+                <p class="text-gray">Stunden & Eventteilnahmen für alle Mitglieder, die sich vergleichen wollen.</p>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Name</th>
+                                <th>Events besucht</th>
+                                <th>Gesamtstunden</th>
+                                <th>Achievements</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var u in _stats.GlobalStats)
+                            {
+                                <tr>
+                                    <td>@u.Rank</td>
+                                    <td>@u.Name</td>
+                                    <td>@u.EventsVisited</td>
+                                    <td>@u.TotalHours.ToString("0.0") h</td>
+                                    <td>
+                                        @foreach (var a in u.Achievements)
+                                        {
+                                            <span class="badge @a.ColorCss" data-bs-toggle="tooltip" title="@a.Tooltip">@a.Shown</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <details class="achievement-legend-panel">
+                    <summary>Achievement-Legende anzeigen</summary>
+                    <div class="achievement-legend">
+                        @foreach (var item in TeamAchievementLegend)
                         {
-                            <p>Keine Teilnehmer.</p>
+                            <div class="achievement-legend__item">
+                                <span class="badge text-bg-secondary achievement-legend__badge">@item.Icon</span>
+                                <span>@item.Label</span>
+                            </div>
                         }
                     </div>
-                }
-                var list = EventStats[group.Name];
-                <div style="display:flex; gap:1rem; margin:1rem 0;">
-                    <!-- Podium -->
-                    @if (list.Count >= 2)
-                    {
+                </details>
+            </div>
 
-                    <div class="podium-card">
-                        <div class="podium-rank silver">2</div>
-                        <div class="podium-name">@list[1].Name</div>
-                        <div class="podium-hours">@list[1].Hours.ToString("0.0") h</div>
-                    </div>
+            @foreach (var group in _stats.SeasonGroups)
+            {
+                <div class="card">
+                    <h3>@group.Season.Name</h3>
+
+                    @if (!group.Events.Any())
+                    {
+                        <p>Keine Events in dieser Saison</p>
                     }
-                    <div class="podium-card">
-                        <div class="podium-rank gold">1</div>
-                        <div class="podium-name">@list[0].Name</div>
-                        <div class="podium-hours">@list[0].Hours.ToString("0.0") h</div>
-                    </div>
-                    @if (list.Count >= 3)
+                    else
                     {
-                    <div class="podium-card">
-                        <div class="podium-rank bronze">3</div>
-                        <div class="podium-name">@list[2].Name</div>
-                        <div class="podium-hours">@list[2].Hours.ToString("0.0") h</div>
-                    </div>
+                        @foreach (var ev in group.Events)
+                        {
+                            <div style="margin-top:1.5rem;">
+                                <h4>@ev.Name (@ev.Location)</h4>
+                                <p class="text-gray">@ev.StartTime.ToShortDateString()</p>
+                                @if (!group.Podium.Any())
+                                {
+                                    <p>Keine Teilnehmer.</p>
+                                }
+                            </div>
+                        }
 
+                        @if (group.Podium.Any())
+                        {
+                            <div style="display:flex; gap:1rem; margin:1rem 0;">
+                                @if (group.Podium.Count >= 2)
+                                {
+                                    <div class="podium-card">
+                                        <div class="podium-rank silver">2</div>
+                                        <div class="podium-name">@group.Podium[1].Name</div>
+                                        <div class="podium-hours">@group.Podium[1].Hours.ToString("0.0") h</div>
+                                    </div>
+                                }
+
+                                <div class="podium-card">
+                                    <div class="podium-rank gold">1</div>
+                                    <div class="podium-name">@group.Podium[0].Name</div>
+                                    <div class="podium-hours">@group.Podium[0].Hours.ToString("0.0") h</div>
+                                </div>
+
+                                @if (group.Podium.Count >= 3)
+                                {
+                                    <div class="podium-card">
+                                        <div class="podium-rank bronze">3</div>
+                                        <div class="podium-name">@group.Podium[2].Name</div>
+                                        <div class="podium-hours">@group.Podium[2].Hours.ToString("0.0") h</div>
+                                    </div>
+                                }
+                            </div>
+                        }
                     }
                 </div>
             }
-        </div>
-    }
-}
-</Authorized>
+        }
+    </Authorized>
 </AuthorizeView>
+
 @code {
     [CascadingParameter]
     Task<AuthenticationState> AuthenticationStateTask { get; set; } = default!;
-    private List<User> Users = new();
-    private List<Event> Events = new();
-    private List<TimeEntry> Entries = new();
 
-    private List<GlobalUserStats> GlobalStats = new();
-    private Dictionary<Season, List<Event>> SeasonGroups = new();
-    private Dictionary<string, List<EventUserStats>> EventStats = new();
     private bool _loaded;
-   protected override async Task OnParametersSetAsync()
+    private TeamStatsVm _stats = new();
+    private static readonly (string Icon, string Label)[] TeamAchievementLegend =
+    [
+        ("👋", "Newcomer: mindestens ein Event besucht."),
+        ("🏃", "Eventrunner: mindestens drei verschiedene Events besucht."),
+        ("🎉⚔️", "Eventveteran: mindestens zehn verschiedene Events besucht."),
+        ("🔥", "20+ Stunden: mindestens 20 Stunden im aktuellen Vergleich."),
+        ("🌟", "50+ Stunden: mindestens 50 Stunden im aktuellen Vergleich."),
+        ("💯", "100+ Stunden: mindestens 100 Stunden im aktuellen Vergleich."),
+        ("🌸🍂🚀❄️☀️", "Season Hero: Teilnahme über alle berücksichtigten Saisonbereiche hinweg."),
+        ("🥈🏆🥉", "Permanentes Podium: irgendwann beim Archivieren Top 3 mit mindestens 15 Stunden erreicht.")
+    ];
+
+    protected override async Task OnParametersSetAsync()
     {
-    if (_loaded)
-    return;
+        if (_loaded)
+            return;
 
-    if (AuthenticationStateTask is null){
-        return;
-    }   
-    var auth = await AuthenticationStateTask;
-    if (auth.User.Identity?.IsAuthenticated != true){
-        return;
-    }
-    var userId = auth.User.FindFirst("UserId")?.Value;
-    if (userId is null)
-        return;
+        if (AuthenticationStateTask is null)
+            return;
 
-    var CurrentUser = await UService.GetUserByStringId(userId);
-    if (CurrentUser is null)
-        return;
-    if(!CurrentUser.ShareStats)Nav.NavigateTo("/user/dashboard");
-    _loaded = true;    
-    }
-    protected override async Task OnInitializedAsync()
-    {
-        Users = await Db.Users.Where(u => u.ShareStats == true).ToListAsync();
-        Events = await Db.Events.ToListAsync();
-        Entries = await Db.TimeEntry
-        .Where(e => e.CheckIn != null && e.CheckOut != null && e.UserId != null)
-        .Include(e => e.Event)
-        .ToListAsync();
+        var auth = await AuthenticationStateTask;
+        if (auth.User.Identity?.IsAuthenticated != true)
+            return;
 
-        SeasonGroups = await seasonService.BuildSeasonGroupsAsync();
-        BuildEventStats();
-        foreach (var group in SeasonGroups.Keys)
+        var userId = auth.User.FindFirst("UserId")?.Value;
+        if (userId is null)
+            return;
+
+        var currentUser = await UService.GetUserByStringId(userId);
+        if (currentUser is null)
+            return;
+
+        if (!currentUser.ShareStats)
         {
-            if (SeasonGroups[group].Any())
-            {
-                var podium = EventStats[group.Name];
-                for (int i = 0; i < Math.Min(3, podium.Count); i++)
-                {
-                    podium[i].Name = await CheckForOpenUsernameAsync(podium[i].UserId);
-                }
-            }
-        }
-        BuildGlobalStats();
-    }
-
-
-    private void BuildEventStats()
-    {
-        foreach (var group in SeasonGroups.Keys)
-        {
-            var events =SeasonGroups[group];
-
-            // Alle Einträge aller Events der Gruppe
-             var stats = seasonService.BuildSeasonStats(
-            group,
-            events,
-            Entries
-            );
-
-            if (stats.Any())
-                EventStats[group.Name] = stats;
-        }
-    }
-
-    private async Task<string> CheckForOpenUsernameAsync(int UserId)
-    {
-        User? user = await Db.Users.FirstOrDefaultAsync(u => u.Id == UserId);
-
-        return user is { ShareStats: true }
-        ? user.Name
-        : "----------";
-
-    }
-
-    private void BuildGlobalStats()
-    {
-        foreach (var u in Users)
-        {
-            var userEntries = Entries.Where(e => e.UserId == u.Id).ToList();
-
-            double totalHours = userEntries.Where(e => e.IsArchived == false).Sum(e => (e.DurationHours ?? 0));
-            int eventsVisited = userEntries.Where(e => e.IsArchived == false).Select(e => e.EventId).Distinct().Count();
-            totalHours += u.BonusHours;
-            var achievements = BuildAchievements(u, totalHours, eventsVisited);
-            
-            GlobalStats.Add(new GlobalUserStats
-            {
-                Id = u.Id,
-                Name = u.Name,
-                TotalHours = totalHours,
-                EventsVisited = eventsVisited,
-                Achievements = achievements,
-                Bonus = u.BonusHours
-            });
+            Nav.NavigateTo("/user/dashboard");
+            return;
         }
 
-        GlobalStats = GlobalStats
-        .OrderByDescending(x => x.TotalHours)
-        .Select((x, i) =>
-        {
-            x.Rank = i + 1;
-            return x;
-        })
-        .ToList();
-    }
-
-    private List<SimpleAchievement> BuildAchievements(User u, double hours, int eventsVisited)
-    {
-        var list = new List<SimpleAchievement>();
-
-        if (eventsVisited >= 1) list.Add(new(){shown="🆕",tooltip="Newcomer"});
-        if (eventsVisited >= 3) list.Add(new(){shown="⚡🏃",tooltip="Eventrunner"});
-        if (eventsVisited >= 10) list.Add(new(){shown="🎉⚔️",tooltip="Eventveteran"});
-        if (hours >= 20) list.Add(new(){shown="💪",tooltip="Hardworker"});
-        if (hours >= 50) list.Add(new(){shown="🌟",tooltip="50 Hours"});
-        if (hours >= 100) list.Add(new(){shown="💎",tooltip="100 Hours"});
-        bool podium = false;
-        bool seasonHero = false;
-        if (SeasonGroups.Keys.Any()) seasonHero=true;
-        foreach(var group in SeasonGroups.Keys){
-            if (SeasonGroups[group].Any()){
-                if(!EventStats[group.Name].Any(es =>es.UserId ==u.Id)) seasonHero =false;  
-                if(EventStats[group.Name].Take(3).Any(es=>es.UserId==u.Id)) podium = true;
-            }
-        }
-        if (podium) list.Add(new(){shown="🥈🏆🥉",tooltip="Podium"});
-        if (seasonHero) list.Add(new(){shown="🌸🍂🚀❄️☀️",tooltip="Season Hero"});
-        // Teilnahme an allen Saisons?
-       
-
-       // if (k && s && h)
-         //   list.Add("Season Hero");
-
-        return list;
-    }
-
-
-    class GlobalUserStats
-    {
-        public int Id { get; set; }
-        public string Name { get; set; } = "";
-        public int Rank { get; set; }
-        public int EventsVisited { get; set; }
-        public double TotalHours { get; set; }
-        public int Bonus { get; set; } = 0;
-        public List<SimpleAchievement> Achievements { get; set; } = new();
-    }
-
-    class SimpleAchievement{
-        public string shown = "";
-        public string tooltip = "";
+        _stats = await TeamStatsService.GetTeamStatsAsync();
+        _loaded = true;
     }
 }

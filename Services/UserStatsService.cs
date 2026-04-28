@@ -99,6 +99,15 @@ public class UserStatsService
             .Include(e => e.Event)
             .ToListAsync(ct);
 
+        var achievements = await db.UserAchievementHistories
+            .AsNoTracking()
+            .Where(x => x.UserId == userId)
+            .OrderByDescending(x => x.IsPermanent)
+            .ThenByDescending(x => x.ArchiveYear)
+            .ThenByDescending(x => x.AwardedAtUtc)
+            .ToListAsync(ct);
+        achievements = CollapseDashboardAchievements(achievements);
+
         var totalHours = entries.Sum(e => e.DurationHours ?? 0) + user.BonusHours;
         var eventsVisited = entries
             .Select(e => e.EventId)
@@ -110,6 +119,17 @@ public class UserStatsService
             User = user,
             TotalHours = totalHours,
             EventsVisited = eventsVisited,
+            ArchivedAchievements = achievements
+                .Select(x => new UserArchivedAchievementVm
+                {
+                    Kind = x.Kind,
+                    Label = x.Label,
+                    BadgeText = x.BadgeText,
+                    ColorCss = x.ColorCss,
+                    ArchiveYear = x.ArchiveYear,
+                    IsPermanent = x.IsPermanent
+                })
+                .ToList(),
             Events = entries
                 .Select(g => new UserDashboardEventVm
                 {
@@ -123,6 +143,38 @@ public class UserStatsService
                 .OrderByDescending(x => x.Date)
                 .ToList()
         };
+    }
+
+    public async Task<Dictionary<int, List<UserArchivedAchievementVm>>> GetAchievementHistoryMapAsync(
+        IEnumerable<int> userIds,
+        CancellationToken ct = default)
+    {
+        var ids = userIds.Distinct().ToList();
+        if (ids.Count == 0)
+            return new Dictionary<int, List<UserArchivedAchievementVm>>();
+
+        await using var db = await _factory.CreateDbContextAsync(ct);
+        var achievements = await db.UserAchievementHistories
+            .AsNoTracking()
+            .Where(x => ids.Contains(x.UserId))
+            .OrderByDescending(x => x.IsPermanent)
+            .ThenByDescending(x => x.ArchiveYear)
+            .ThenByDescending(x => x.AwardedAtUtc)
+            .ToListAsync(ct);
+
+        return achievements
+            .GroupBy(x => x.UserId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(x => new UserArchivedAchievementVm
+                {
+                    Kind = x.Kind,
+                    Label = x.Label,
+                    BadgeText = x.BadgeText,
+                    ColorCss = x.ColorCss,
+                    ArchiveYear = x.ArchiveYear,
+                    IsPermanent = x.IsPermanent
+                }).ToList());
     }
 
     private static int CalculateStreak(List<TimeEntry> entries)
@@ -142,6 +194,53 @@ public class UserStatsService
             current = current.AddDays(-1);
         }
         return streak;
+    }
+
+    private static List<UserAchievementHistory> CollapseDashboardAchievements(List<UserAchievementHistory> achievements)
+    {
+        return achievements
+            .GroupBy(x => new
+            {
+                x.IsPermanent,
+                x.ArchiveYear,
+                Family = GetAchievementFamily(x.Kind)
+            })
+            .Select(g => g
+                .OrderByDescending(x => GetAchievementRank(x.Kind))
+                .ThenByDescending(x => x.AwardedAtUtc)
+                .First())
+            .OrderByDescending(x => x.IsPermanent)
+            .ThenByDescending(x => x.ArchiveYear)
+            .ThenByDescending(x => x.AwardedAtUtc)
+            .ToList();
+    }
+
+    private static string GetAchievementFamily(string kind)
+    {
+        return kind switch
+        {
+            "newcomer" or "eventrunner" or "eventveteran" => "events",
+            "hardworker" or "fiftyhours" or "hundredhours" => "hours",
+            "podium-year" => "podium-year",
+            "podium-permanent" => "podium-permanent",
+            _ => kind
+        };
+    }
+
+    private static int GetAchievementRank(string kind)
+    {
+        return kind switch
+        {
+            "newcomer" => 1,
+            "eventrunner" => 2,
+            "eventveteran" => 3,
+            "hardworker" => 1,
+            "fiftyhours" => 2,
+            "hundredhours" => 3,
+            "podium-year" => 1,
+            "podium-permanent" => 1,
+            _ => 1
+        };
     }
 }
 
@@ -169,7 +268,18 @@ public class UserDashboardVm
     public User User { get; set; } = new();
     public double TotalHours { get; set; }
     public int EventsVisited { get; set; }
+    public List<UserArchivedAchievementVm> ArchivedAchievements { get; set; } = new();
     public List<UserDashboardEventVm> Events { get; set; } = new();
+}
+
+public class UserArchivedAchievementVm
+{
+    public string Kind { get; set; } = "";
+    public string Label { get; set; } = "";
+    public string BadgeText { get; set; } = "";
+    public string ColorCss { get; set; } = "text-bg-light";
+    public int? ArchiveYear { get; set; }
+    public bool IsPermanent { get; set; }
 }
 
 public class UserDashboardEventVm

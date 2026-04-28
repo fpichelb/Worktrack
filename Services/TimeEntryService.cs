@@ -208,6 +208,8 @@ public class TimeEntryService
     public async Task<double> ArchiveUserHoursAsync(User user)
     {
         await using var Db = await _factory.CreateDbContextAsync();
+        await SnapshotAchievementsAsync(Db, [user.Id]);
+
         var entries = await Db.TimeEntry
             .Where(e => e.UserId == user.Id && e.IsArchived == false)
             .ToListAsync();
@@ -225,6 +227,8 @@ public class TimeEntryService
     public async Task<ArchiveResult> ArchiveAllUsersAsync()
     {
         await using var Db = await _factory.CreateDbContextAsync();
+        await SnapshotAchievementsAsync(Db);
+
         var users = await Db.Users.ToListAsync();
         var entries = await Db.TimeEntry
         .Where(e => e.CheckOut != null && !e.IsArchived)
@@ -266,6 +270,105 @@ public class TimeEntryService
     {
         public int TotalEntries { get; set; }
         public double TotalHours { get; set; }
+    }
+
+    private async Task SnapshotAchievementsAsync(AppDbContext db, List<int>? onlyUserIds = null)
+    {
+        var archiveYear = DateTime.Today.Year;
+        var usersQuery = db.Users.AsQueryable();
+        if (onlyUserIds is not null && onlyUserIds.Count > 0)
+            usersQuery = usersQuery.Where(x => onlyUserIds.Contains(x.Id));
+
+        var users = await usersQuery.ToListAsync();
+        if (users.Count == 0)
+            return;
+
+        var userIds = users.Select(x => x.Id).ToList();
+        var entries = await db.TimeEntry
+            .Where(e => e.CheckOut != null && !e.IsArchived && e.UserId.HasValue && userIds.Contains(e.UserId.Value))
+            .ToListAsync();
+
+        var existing = await db.UserAchievementHistories
+            .Where(x => userIds.Contains(x.UserId) && (x.ArchiveYear == archiveYear || x.IsPermanent))
+            .ToListAsync();
+
+        var activeRows = users
+            .Select(u =>
+            {
+                var userEntries = entries.Where(e => e.UserId == u.Id).ToList();
+                return new
+                {
+                    User = u,
+                    Hours = userEntries.Sum(e => e.DurationHours ?? 0) + u.BonusHours,
+                    EventsVisited = userEntries.Select(e => e.EventId).Distinct().Count()
+                };
+            })
+            .Where(x => x.Hours > 0)
+            .OrderByDescending(x => x.Hours)
+            .ThenBy(x => x.User.Name)
+            .ToList();
+
+        for (var i = 0; i < activeRows.Count; i++)
+        {
+            var row = activeRows[i];
+            var rank = i + 1;
+
+            if (row.EventsVisited < 1)
+                continue;
+
+            AddAchievementIfMissing(db, existing, row.User.Id, "newcomer", "Newcomer", "NEW", "text-bg-light", archiveYear);
+            if (row.EventsVisited >= 3)
+                AddAchievementIfMissing(db, existing, row.User.Id, "eventrunner", "Eventrunner", "RUN", "text-bg-primary", archiveYear);
+            if (row.EventsVisited >= 10)
+                AddAchievementIfMissing(db, existing, row.User.Id, "eventveteran", "Eventveteran", "VET", "text-bg-dark", archiveYear);
+            if (row.Hours >= 20)
+                AddAchievementIfMissing(db, existing, row.User.Id, "hardworker", "Hardworker", "15h+", "text-bg-success", archiveYear);
+            if (row.Hours >= 50)
+                AddAchievementIfMissing(db, existing, row.User.Id, "fiftyhours", "50 Stunden", "50h", "text-bg-warning", archiveYear);
+            if (row.Hours >= 100)
+                AddAchievementIfMissing(db, existing, row.User.Id, "hundredhours", "100 Stunden", "100h", "text-bg-danger", archiveYear);
+
+            if (rank <= 3 && row.Hours >= 15)
+            {
+                AddAchievementIfMissing(db, existing, row.User.Id, "podium-year", "Podium ", "P3", "text-bg-info", archiveYear);
+                AddAchievementIfMissing(db, existing, row.User.Id, "podium-permanent", "Podium", "POD", "text-bg-info", null, isPermanent: true);
+            }
+        }
+    }
+
+    private static void AddAchievementIfMissing(
+        AppDbContext db,
+        List<UserAchievementHistory> existing,
+        int userId,
+        string kind,
+        string label,
+        string badgeText,
+        string colorCss,
+        int? archiveYear,
+        bool isPermanent = false)
+    {
+        if (existing.Any(x => x.UserId == userId &&
+                              x.Kind == kind &&
+                              x.ArchiveYear == archiveYear &&
+                              x.IsPermanent == isPermanent))
+        {
+            return;
+        }
+
+        var achievement = new UserAchievementHistory
+        {
+            UserId = userId,
+            Kind = kind,
+            Label = label,
+            BadgeText = badgeText,
+            ColorCss = colorCss,
+            ArchiveYear = archiveYear,
+            IsPermanent = isPermanent,
+            AwardedAtUtc = DateTime.UtcNow
+        };
+
+        db.UserAchievementHistories.Add(achievement);
+        existing.Add(achievement);
     }
 
     public async Task<int> AutoCheckoutStaleEntriesAsync()

@@ -31,6 +31,7 @@ public class AppDbContext : DbContext
     public DbSet<TrainingEventParticipant> TrainingEventParticipants { get; set; }
     public DbSet<TrainingSeries> TrainingSeries { get; set; }
     public DbSet<TrainingSeriesException> TrainingSeriesExceptions { get; set; }
+    public DbSet<UserAchievementHistory> UserAchievementHistories { get; set; }
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -121,5 +122,30 @@ public class AppDbContext : DbContext
     modelBuilder.Entity<TrainingSeriesException>()
         .HasIndex(x => new { x.TrainingSeriesId, x.OccurrenceDate })
         .IsUnique();
+
+    modelBuilder.Entity<UserAchievementHistory>()
+        .Property(x => x.Kind)
+        .HasMaxLength(80);
+
+    modelBuilder.Entity<UserAchievementHistory>()
+        .Property(x => x.Label)
+        .HasMaxLength(120);
+
+    modelBuilder.Entity<UserAchievementHistory>()
+        .Property(x => x.BadgeText)
+        .HasMaxLength(32);
+
+    modelBuilder.Entity<UserAchievementHistory>()
+        .Property(x => x.ColorCss)
+        .HasMaxLength(120);
+
+    modelBuilder.Entity<UserAchievementHistory>()
+        .HasOne(x => x.User)
+        .WithMany()
+        .HasForeignKey(x => x.UserId)
+        .OnDelete(DeleteBehavior.Cascade);
+
+    modelBuilder.Entity<UserAchievementHistory>()
+        .HasIndex(x => new { x.UserId, x.Kind, x.ArchiveYear, x.IsPermanent });
     }
 }

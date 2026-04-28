@@ -125,6 +125,45 @@ else
             </div>
         </div>
 
+        @if (ArchivedAchievements.Any())
+        {
+            <div class="card">
+                <h3>Erreichte Achievements</h3>
+                <div class="d-flex flex-wrap gap-2">
+                    @foreach (var achievement in ArchivedAchievements)
+                    {
+                        var title = achievement.IsPermanent
+                            ? $"{achievement.Label} (permanent)"
+                            : achievement.ArchiveYear.HasValue
+                                ? $"{achievement.Label} {achievement.ArchiveYear.Value}"
+                                : achievement.Label;
+
+                        <span class="achievement-chip" title="@title">
+                            <span class="badge achievement-chip__badge achievement-chip__badge--gold">
+                                @GetAchievementBadge(achievement)
+                            </span>
+                            @if (achievement.ArchiveYear.HasValue)
+                            {
+                                <span class="badge achievement-chip__year achievement-chip__year--gold">@achievement.ArchiveYear.Value</span>
+                            }
+                        </span>
+                    }
+                </div>
+                <details class="achievement-legend-panel">
+                    <summary>Achievement-Legende anzeigen</summary>
+                    <div class="achievement-legend">
+                        @foreach (var item in DashboardAchievementLegend)
+                        {
+                            <div class="achievement-legend__item">
+                                <span class="badge achievement-legend__badge achievement-chip__badge--gold">@item.Icon</span>
+                                <span>@item.Label</span>
+                            </div>
+                        }
+                    </div>
+                </details>
+            </div>
+        }
+
         <!-- MY EVENTS -->
         <div class="card">
             <h3>Meine Events</h3>
@@ -188,9 +227,21 @@ else
     private List<NewsItem> _news =new List<NewsItem>();
     private double TotalHours = 0;
     private int EventsVisited = 0;
+    private List<UserArchivedAchievementVm> ArchivedAchievements = new();
     private string UserLoginUrl="/user/login";
     private bool _regeneratingCode;
     private string _newSecretCodeInfo = "";
+    private static readonly (string Icon, string Label)[] DashboardAchievementLegend =
+    [
+        ("👋", "Newcomer: Du hast im archivierten Zeitraum mindestens ein Event besucht."),
+        ("🏃", "Eventrunner: Du hast im archivierten Zeitraum mindestens drei verschiedene Events besucht."),
+        ("🎉⚔️", "Eventveteran: Du hast im archivierten Zeitraum mindestens zehn verschiedene Events besucht."),
+        ("🔥", "20+ Stunden: Du hast im archivierten Zeitraum mindestens 20 Stunden gesammelt."),
+        ("🌟", "50+ Stunden: Du hast im archivierten Zeitraum mindestens 50 Stunden gesammelt."),
+        ("💯", "100+ Stunden: Du hast im archivierten Zeitraum mindestens 100 Stunden gesammelt."),
+        ("🥈🏆🥉", "Podium: Du warst beim Archivieren unter den Top 3 und hattest dabei mindestens 15 Stunden."),
+        ("🌸🍂🚀❄️☀️", "Season Hero: Dieses Symbol steht für eine vollständige Teilnahme über alle Saisons bzw. Saisonbereiche hinweg.")
+    ];
     
 
     protected override async Task OnParametersSetAsync()
@@ -243,6 +294,7 @@ else
         CurrentUser = dashboard.User;
         TotalHours = dashboard.TotalHours;
         EventsVisited = dashboard.EventsVisited;
+        ArchivedAchievements = dashboard.ArchivedAchievements;
         MyEventStats = dashboard.Events;
     }
 
@@ -277,6 +329,23 @@ else
     private void Logout()
     {
         Nav.NavigateTo("/auth/logout", forceLoad: true);
+    }
+
+    private static string GetAchievementBadge(UserArchivedAchievementVm achievement)
+    {
+        return achievement.Kind switch
+        {
+            "newcomer" => "👋",
+            "eventrunner" => "🏃",
+            "eventveteran" => "🎉⚔️",
+            "hardworker" => "🔥",
+            "fiftyhours" => "🌟",
+            "hundredhours" => "💯",
+            "podium-year" => "🥈🏆🥉",
+            "podium-permanent" => "🥈🏆🥉",
+            "seasonhero" => "🌸🍂🚀❄️☀️",
+            _ => string.IsNullOrWhiteSpace(achievement.BadgeText) ? "🏅" : achievement.BadgeText
+        };
     }
 
 }

@@ -427,6 +427,83 @@ tr:hover {
   font-size: 0.8rem;
 }
 
+.achievement-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  border-radius: 999px;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(180, 136, 0, 0.28);
+}
+
+.achievement-chip__badge {
+  margin-right: 0;
+  border-radius: 999px 0 0 999px;
+  padding-right: 0.5rem;
+}
+
+.achievement-chip__badge--gold {
+  background: linear-gradient(180deg, #f7df8a 0%, #d9ad26 100%);
+  color: #4b3400;
+}
+
+.achievement-chip__year {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.7rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 0 999px 999px 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1;
+  border-left: 1px solid rgba(17, 24, 39, 0.12);
+  margin-right: 0;
+}
+
+.achievement-chip__year--gold {
+  background: linear-gradient(180deg, #f3d56b 0%, #c99614 100%);
+  color: #4b3400;
+  border-left-color: rgba(93, 63, 0, 0.22);
+}
+
+.achievement-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.9rem;
+  margin-top: 0.85rem;
+}
+
+.achievement-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  color: #4b5563;
+}
+
+.achievement-legend__badge {
+  margin-right: 0;
+  min-width: 2.1rem;
+  text-align: center;
+}
+
+.achievement-legend-panel {
+  margin-top: 0.9rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid #eceff3;
+}
+
+.achievement-legend-panel summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #374151;
+}
+
+.achievement-legend-panel[open] summary {
+  margin-bottom: 0.75rem;
+}
+
 .podium-card {
   width: 130px;
   padding: 1rem;
