@@ -189,7 +189,7 @@ public class TeamStatsService
             "fiftyhours" => "🌟",
             "hundredhours" => "💯",
             "podium-year" => "🥈🏆🥉",
-            "podium-permanent" => "🥈🏆🥉",
+            "podium-permanent" => "🌿🥈🏆🥉🌿",
             _ => string.IsNullOrWhiteSpace(item.BadgeText) ? "🏅" : item.BadgeText
         };
 

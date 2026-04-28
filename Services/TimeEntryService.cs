@@ -7,10 +7,12 @@ namespace Worktrack.Services;
 public class TimeEntryService
 {
     private readonly IDbContextFactory<AppDbContext> _factory;
+    private readonly SeasonService _seasonService;
 
-    public TimeEntryService(IDbContextFactory<AppDbContext> factory)
+    public TimeEntryService(IDbContextFactory<AppDbContext> factory, SeasonService seasonService)
     {
         _factory = factory;
+        _seasonService = seasonService;
     }
 
     // --------------------------------------------------------------------
@@ -288,32 +290,51 @@ public class TimeEntryService
             throw new ArgumentException("Das Bis-Datum darf nicht vor dem Von-Datum liegen.");
 
         await using var db = await _factory.CreateDbContextAsync();
-        var fromUtc = from.Date;
-        var toUtcExclusive = to.Date.AddDays(1);
+        var fromDate = from.Date;
+        var toDate = to.Date;
         var archiveYear = to.Date.Year;
+        var seasonGroups = await _seasonService.BuildSeasonGroupsAsync();
+        var filteredSeasonGroups = seasonGroups
+            .Select(pair => new
+            {
+                Season = pair.Key,
+                Events = pair.Value
+                    .Where(e => e.StartTime.Date >= fromDate && e.StartTime.Date <= toDate)
+                    .ToList()
+            })
+            .Where(x => x.Events.Any())
+            .ToList();
+        var relevantEventIds = filteredSeasonGroups
+            .SelectMany(x => x.Events)
+            .Select(x => x.Id)
+            .Distinct()
+            .ToList();
 
         var entries = await db.TimeEntry
             .Where(e => e.CheckOut != null &&
                         e.UserId.HasValue &&
-                        e.CheckIn.HasValue &&
-                        e.CheckIn.Value >= fromUtc &&
-                        e.CheckIn.Value < toUtcExclusive)
+                        relevantEventIds.Contains(e.EventId))
             .ToListAsync();
 
-        var rankedRows = entries
-            .GroupBy(e => e.UserId!.Value)
-            .Select(g => new
-            {
-                UserId = g.Key,
-                Hours = g.Sum(x => x.DurationHours ?? 0),
-                EventsVisited = g.Select(x => x.EventId).Distinct().Count()
-            })
-            .Where(x => x.Hours > 0 && x.EventsVisited > 0)
-            .OrderByDescending(x => x.Hours)
-            .ThenBy(x => x.UserId)
-            .ToList();
+        var targetUserIds = new HashSet<int>();
+        var rankedUserIds = new HashSet<int>();
 
-        var targetUserIds = rankedRows.Take(3).Where(x => x.Hours >= 9).Select(x => x.UserId).ToList();
+        foreach (var group in filteredSeasonGroups)
+        {
+            var stats = _seasonService.BuildSeasonStats(group.Season, group.Events, entries);
+            var podium = stats.Take(3).Where(x => x.UserId > 0 && x.Hours >= 9).ToList();
+
+            foreach (var stat in stats.Where(x => x.UserId > 0))
+            {
+                rankedUserIds.Add(stat.UserId);
+            }
+
+            foreach (var item in podium)
+            {
+                targetUserIds.Add(item.UserId);
+            }
+        }
+
         var existing = await db.UserAchievementHistories
             .Where(x => targetUserIds.Contains(x.UserId) &&
                         ((x.Kind == "podium-year" && x.ArchiveYear == archiveYear) ||
@@ -325,7 +346,7 @@ public class TimeEntryService
 
         foreach (var userId in targetUserIds)
         {
-            AddAchievementIfMissing(db, existing, userId, "podium-year", $"Podium {archiveYear}", "P3", "text-bg-info", archiveYear);
+            AddAchievementIfMissing(db, existing, userId, "podium-year", "Podium ", "P3", "text-bg-info", archiveYear);
             AddAchievementIfMissing(db, existing, userId, "podium-permanent", "Podium", "POD", "text-bg-info", null, isPermanent: true);
         }
 
@@ -334,7 +355,7 @@ public class TimeEntryService
         return new PodiumBackfillResult
         {
             ArchiveYear = archiveYear,
-            RankedUsers = rankedRows.Count,
+            RankedUsers = rankedUserIds.Count,
             AwardedYearPodiums = existing.Count(x => x.Kind == "podium-year" && x.ArchiveYear == archiveYear) - beforeYear,
             AwardedPermanentPodiums = existing.Count(x => x.Kind == "podium-permanent" && x.IsPermanent) - beforePermanent
         };

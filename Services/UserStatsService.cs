@@ -217,11 +217,13 @@ public class UserStatsService
 
     private static string GetAchievementFamily(string kind)
     {
+        if (kind.StartsWith("podium-year", StringComparison.Ordinal))
+            return kind;
+
         return kind switch
         {
             "newcomer" or "eventrunner" or "eventveteran" => "events",
             "hardworker" or "fiftyhours" or "hundredhours" => "hours",
-            "podium-year" => "podium-year",
             "podium-permanent" => "podium-permanent",
             _ => kind
         };
@@ -229,6 +231,9 @@ public class UserStatsService
 
     private static int GetAchievementRank(string kind)
     {
+        if (kind.StartsWith("podium-year", StringComparison.Ordinal))
+            return 1;
+
         return kind switch
         {
             "newcomer" => 1,
@@ -237,7 +242,6 @@ public class UserStatsService
             "hardworker" => 1,
             "fiftyhours" => 2,
             "hundredhours" => 3,
-            "podium-year" => 1,
             "podium-permanent" => 1,
             _ => 1
         };
