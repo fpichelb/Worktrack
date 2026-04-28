@@ -274,7 +274,8 @@
     private async Task ExportCsv()
     {
         var sb = new StringBuilder();
-        sb.AppendLine("Name,Email,SecretCode,Role,ShareStats,ArchivedHours,CurrentHours,TotalHours");
+        sb.AppendLine("sep=;");
+        sb.AppendLine("Name;Email;SecretCode;Role;ShareStats;ArchivedHours;CurrentHours;TotalHours");
 
         foreach (var u in Users)
         {
@@ -284,9 +285,9 @@
             sb.AppendLine($"{Escape(u.Name)};{Escape(u.Email)};{Escape(u.SecretCode)};{u.Role};{u.ShareStats};{u.ArchivedHours:0.0};{current:0.0};{total:0.0}");
         }
 
-        var bytes = Encoding.UTF8.GetBytes(sb.ToString());
+        var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(sb.ToString())).ToArray();
         var base64 = Convert.ToBase64String(bytes);
-        var url = $"data:text/csv;base64,{base64}";
+        var url = $"data:text/csv;charset=utf-8;base64,{base64}";
         var fileName = $"worktrack-users-{DateTime.Now:yyyyMMdd}.csv";
 
         await JS.InvokeVoidAsync("downloadFile", url, fileName);
