@@ -522,6 +522,29 @@ tr:hover {
   margin: 0;
 }
 
+.archive-year-panel {
+  margin-top: 0.9rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.archive-year-panel summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  cursor: pointer;
+  padding: 0.9rem 1rem;
+  font-weight: 600;
+  background: #f8fafc;
+}
+
+.archive-year-panel[open] summary {
+  border-bottom: 1px solid #e5e7eb;
+}
+
 .podium-card {
   width: 130px;
   padding: 1rem;

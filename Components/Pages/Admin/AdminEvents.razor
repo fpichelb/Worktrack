@@ -72,6 +72,77 @@
     {
         <p class="mt-3">Keine Events in dieser Ansicht vorhanden.</p>
     }
+    else if (ShowArchivedOnly)
+    {
+        <div class="mt-3">
+            @foreach (var yearGroup in ArchivedEventGroups)
+            {
+                <details class="archive-year-panel" open>
+                    <summary>
+                        <span>Archivjahr @yearGroup.Year</span>
+                        <span class="badge text-bg-secondary">@yearGroup.Events.Count</span>
+                    </summary>
+                    <div class="table-responsive mt-3">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Ort</th>
+                                    <th>Datum</th>
+                                    <th>QR-Code</th>
+                                    <th>Status</th>
+                                    <th class="text-right">Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var e in yearGroup.Events)
+                                {
+                                    <tr>
+                                        <td>
+                                            <InputText @bind-Value="e.Name" @bind-Value:after="() => Save(e)" />
+                                        </td>
+                                        <td>@e.Location</td>
+                                        <td>@e.StartTime.ToString("dd.MM.yyyy")</td>
+                                        <td>
+                                            @if (QrCache.TryGetValue(e.Id, out var qr))
+                                            {
+                                                <img src="@qr" style="width:80px; border:1px solid #ccc; padding:3px;" />
+                                                <br />
+                                                <button class="btn btn-secondary btn-small mt-2" @onclick="() => ShowLargeQR(e.Id)">QR groß</button>
+                                            }
+                                        </td>
+                                        <td>
+                                            <span class="badge text-bg-secondary">Archiviert</span>
+                                            @if (e.ArchivedAtUtc.HasValue)
+                                            {
+                                                <div class="small text-muted mt-1">@e.ArchivedAtUtc.Value.ToLocalTime().ToString("dd.MM.yyyy")</div>
+                                            }
+                                        </td>
+                                        <td class="text-right">
+                                            <button class="btn btn-outline-secondary" style="margin:0 0.6rem 0 0;" @onclick="() => SelectEvent(e)">Details</button>
+                                            <div class="admin-event-action-grid">
+                                                <button class="btn btn-outline-info admin-event-action-btn" title="Erneut planen" @onclick="() => StartReplan(e)">↻</button>
+                                                <button class="btn btn-outline-success admin-event-action-btn" title="Wiederherstellen" @onclick="() => RestoreEvent(e)">⟲</button>
+                                                <button class="btn btn-outline-dark admin-event-action-btn" title="Archiviert" disabled>🗂</button>
+                                                <button class="btn btn-danger admin-event-action-btn" title="Löschen" @onclick="() => _confirmDelete = e.Id">✕</button>
+                                            </div>
+                                            @if (_confirmDelete == e.Id)
+                                            {
+                                                <div class="position-absolute z-100 bg-light border rounded shadow p-4">
+                                                    <button class="btn btn-danger" style="margin:0.5rem;" @onclick="() => DeleteEvent(e)">Ja, Löschen</button>
+                                                    <button class="btn btn-secondary" style="margin:0.5rem;" @onclick="() => _confirmDelete = -1">Abbrechen</button>
+                                                </div>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </details>
+            }
+        </div>
+    }
     else
     {
         <div class="table-responsive mt-3">
@@ -264,6 +335,11 @@
     private List<Event> ActiveEvents => Events.Where(e => !e.IsArchived).OrderByDescending(e => e.StartTime).ToList();
     private List<Event> ArchivedEvents => Events.Where(e => e.IsArchived).OrderByDescending(e => e.ArchivedAtUtc ?? e.StartTime).ToList();
     private List<Event> FilteredEvents => ShowArchivedOnly ? ArchivedEvents : ActiveEvents;
+    private List<ArchivedEventYearGroup> ArchivedEventGroups => ArchivedEvents
+        .GroupBy(e => (e.ArchivedAtUtc ?? e.StartTime).Year)
+        .OrderByDescending(g => g.Key)
+        .Select(g => new ArchivedEventYearGroup(g.Key, g.OrderByDescending(e => e.ArchivedAtUtc ?? e.StartTime).ToList()))
+        .ToList();
 
     protected override async Task OnInitializedAsync()
     {
@@ -400,4 +476,6 @@
     {
         LargeQrBase64 = null;
     }
+
+    private sealed record ArchivedEventYearGroup(int Year, List<Event> Events);
 }

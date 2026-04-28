@@ -71,9 +71,44 @@ else
 }
 </div>
 
+<div class="card">
+    <h3>Podien nachtragen</h3>
+    <p>Berechnet für einen Zeitraum die Top 3 anhand der vorhandenen TimeEntries und trägt fehlende Jahres- und permanente Podien ein.</p>
+
+    <div class="event-grid">
+        <div>
+            <label>Von</label>
+            <input type="date" class="form-control" @bind="PodiumFrom" />
+        </div>
+        <div>
+            <label>Bis</label>
+            <input type="date" class="form-control" @bind="PodiumTo" />
+        </div>
+        <div class="d-flex align-items-end">
+            <button class="btn btn-primary" disabled="@PodiumBackfillRunning" @onclick="BackfillPodiums">
+                @(PodiumBackfillRunning ? "Berechne..." : "Podien eintragen")
+            </button>
+        </div>
+    </div>
+
+    @if (PodiumBackfillResult is not null)
+    {
+        <div class="mt-3 d-flex flex-wrap gap-2">
+            <span class="badge text-bg-light">Jahr: @PodiumBackfillResult.ArchiveYear</span>
+            <span class="badge text-bg-light">Gewertete Nutzer: @PodiumBackfillResult.RankedUsers</span>
+            <span class="badge text-bg-success">Neue Jahres-Podien: @PodiumBackfillResult.AwardedYearPodiums</span>
+            <span class="badge text-bg-success">Neue permanente Podien: @PodiumBackfillResult.AwardedPermanentPodiums</span>
+        </div>
+    }
+</div>
+
 @code {
     private List<RowModel>? Rows;
     bool Confirm = false;
+    private DateTime PodiumFrom = new(DateTime.Today.Year, 1, 1);
+    private DateTime PodiumTo = DateTime.Today;
+    private bool PodiumBackfillRunning;
+    private TimeEntryService.PodiumBackfillResult? PodiumBackfillResult;
 
     protected override async Task OnInitializedAsync()
     {
@@ -115,6 +150,26 @@ else
         Result = await TEservice.ArchiveAllUsersAsync();
         StateHasChanged();
         Toasts.ShowSuccess("Alle User Archiviert",$"Es wurden insgesamt {Result.TotalHours.ToString("F2")}h \nbei {Result.TotalEntries} Einträgen archviert");
+    }
+
+    private async Task BackfillPodiums()
+    {
+        PodiumBackfillRunning = true;
+        try
+        {
+            PodiumBackfillResult = await TEservice.BackfillPodiumsAsync(PodiumFrom, PodiumTo);
+            Toasts.ShowSuccess(
+                "Podien eingetragen",
+                $"Jahres-Podien: {PodiumBackfillResult.AwardedYearPodiums}, permanente Podien: {PodiumBackfillResult.AwardedPermanentPodiums}");
+        }
+        catch (Exception ex)
+        {
+            Toasts.ShowError("Podien konnten nicht berechnet werden", ex.Message);
+        }
+        finally
+        {
+            PodiumBackfillRunning = false;
+        }
     }
 
 

@@ -143,7 +143,10 @@ public class TeamStatsService
         foreach (var group in seasonGroups.Keys)
         {
             if (!seasonGroups[group].Any())
-                continue;
+            {
+                seasonHero = false;
+                break;
+            }
 
             var seasonEventIds = seasonGroups[group].Select(e => e.Id).ToHashSet();
             if (!entries.Any(e => e.UserId == user.Id && seasonEventIds.Contains(e.EventId)))

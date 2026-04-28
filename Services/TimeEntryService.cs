@@ -208,7 +208,7 @@ public class TimeEntryService
     public async Task<double> ArchiveUserHoursAsync(User user)
     {
         await using var Db = await _factory.CreateDbContextAsync();
-        await SnapshotAchievementsAsync(Db, [user.Id]);
+        await SnapshotAchievementsAsync(Db, [user.Id], includePodium: false);
 
         var entries = await Db.TimeEntry
             .Where(e => e.UserId == user.Id && e.IsArchived == false)
@@ -228,7 +228,7 @@ public class TimeEntryService
     public async Task<ArchiveResult> ArchiveAllUsersAsync()
     {
         await using var Db = await _factory.CreateDbContextAsync();
-        await SnapshotAchievementsAsync(Db);
+        await SnapshotAchievementsAsync(Db, includePodium: true);
 
         var users = await Db.Users.ToListAsync();
         var entries = await Db.TimeEntry
@@ -274,6 +274,72 @@ public class TimeEntryService
         public double TotalHours { get; set; }
     }
 
+    public class PodiumBackfillResult
+    {
+        public int ArchiveYear { get; set; }
+        public int RankedUsers { get; set; }
+        public int AwardedYearPodiums { get; set; }
+        public int AwardedPermanentPodiums { get; set; }
+    }
+
+    public async Task<PodiumBackfillResult> BackfillPodiumsAsync(DateTime from, DateTime to)
+    {
+        if (to.Date < from.Date)
+            throw new ArgumentException("Das Bis-Datum darf nicht vor dem Von-Datum liegen.");
+
+        await using var db = await _factory.CreateDbContextAsync();
+        var fromUtc = from.Date;
+        var toUtcExclusive = to.Date.AddDays(1);
+        var archiveYear = to.Date.Year;
+
+        var entries = await db.TimeEntry
+            .Where(e => e.CheckOut != null &&
+                        e.UserId.HasValue &&
+                        e.CheckIn.HasValue &&
+                        e.CheckIn.Value >= fromUtc &&
+                        e.CheckIn.Value < toUtcExclusive)
+            .ToListAsync();
+
+        var rankedRows = entries
+            .GroupBy(e => e.UserId!.Value)
+            .Select(g => new
+            {
+                UserId = g.Key,
+                Hours = g.Sum(x => x.DurationHours ?? 0),
+                EventsVisited = g.Select(x => x.EventId).Distinct().Count()
+            })
+            .Where(x => x.Hours > 0 && x.EventsVisited > 0)
+            .OrderByDescending(x => x.Hours)
+            .ThenBy(x => x.UserId)
+            .ToList();
+
+        var targetUserIds = rankedRows.Take(3).Where(x => x.Hours >= 9).Select(x => x.UserId).ToList();
+        var existing = await db.UserAchievementHistories
+            .Where(x => targetUserIds.Contains(x.UserId) &&
+                        ((x.Kind == "podium-year" && x.ArchiveYear == archiveYear) ||
+                         (x.Kind == "podium-permanent" && x.IsPermanent)))
+            .ToListAsync();
+
+        var beforeYear = existing.Count(x => x.Kind == "podium-year" && x.ArchiveYear == archiveYear);
+        var beforePermanent = existing.Count(x => x.Kind == "podium-permanent" && x.IsPermanent);
+
+        foreach (var userId in targetUserIds)
+        {
+            AddAchievementIfMissing(db, existing, userId, "podium-year", $"Podium {archiveYear}", "P3", "text-bg-info", archiveYear);
+            AddAchievementIfMissing(db, existing, userId, "podium-permanent", "Podium", "POD", "text-bg-info", null, isPermanent: true);
+        }
+
+        await db.SaveChangesAsync();
+
+        return new PodiumBackfillResult
+        {
+            ArchiveYear = archiveYear,
+            RankedUsers = rankedRows.Count,
+            AwardedYearPodiums = existing.Count(x => x.Kind == "podium-year" && x.ArchiveYear == archiveYear) - beforeYear,
+            AwardedPermanentPodiums = existing.Count(x => x.Kind == "podium-permanent" && x.IsPermanent) - beforePermanent
+        };
+    }
+
     private static async Task MarkCompletedEventsAsArchivedAsync(AppDbContext db)
     {
         var now = DateTime.UtcNow;
@@ -305,24 +371,26 @@ public class TimeEntryService
         }
     }
 
-    private async Task SnapshotAchievementsAsync(AppDbContext db, List<int>? onlyUserIds = null)
+    private async Task SnapshotAchievementsAsync(AppDbContext db, List<int>? onlyUserIds = null, bool includePodium = true)
     {
         var archiveYear = DateTime.Today.Year;
-        var usersQuery = db.Users.AsQueryable();
-        if (onlyUserIds is not null && onlyUserIds.Count > 0)
-            usersQuery = usersQuery.Where(x => onlyUserIds.Contains(x.Id));
+        var targetUserIds = onlyUserIds is { Count: > 0 }
+            ? onlyUserIds.Distinct().ToList()
+            : null;
 
-        var users = await usersQuery.ToListAsync();
+        var users = await db.Users.ToListAsync();
         if (users.Count == 0)
             return;
 
-        var userIds = users.Select(x => x.Id).ToList();
+        var allUserIds = users.Select(x => x.Id).ToList();
+        var affectedUserIds = targetUserIds ?? allUserIds;
         var entries = await db.TimeEntry
-            .Where(e => e.CheckOut != null && !e.IsArchived && e.UserId.HasValue && userIds.Contains(e.UserId.Value))
+            .Where(e => e.CheckOut != null && !e.IsArchived && e.UserId.HasValue && allUserIds.Contains(e.UserId.Value))
             .ToListAsync();
 
         var existing = await db.UserAchievementHistories
-            .Where(x => userIds.Contains(x.UserId) && (x.ArchiveYear == archiveYear || x.IsPermanent))
+            .Where(x => affectedUserIds.Contains(x.UserId) &&
+                        (x.ArchiveYear == archiveYear || x.IsPermanent || x.Kind == "podium-year"))
             .ToListAsync();
 
         var activeRows = users
@@ -346,6 +414,9 @@ public class TimeEntryService
             var row = activeRows[i];
             var rank = i + 1;
 
+            if (!affectedUserIds.Contains(row.User.Id))
+                continue;
+
             if (row.EventsVisited < 1)
                 continue;
 
@@ -361,11 +432,16 @@ public class TimeEntryService
             if (row.Hours >= 100)
                 AddAchievementIfMissing(db, existing, row.User.Id, "hundredhours", "100 Stunden", "100h", "text-bg-danger", archiveYear);
 
-            if (rank <= 3 && row.Hours >= 15)
+            if (includePodium && rank <= 3 && row.Hours >= 9)
             {
                 AddAchievementIfMissing(db, existing, row.User.Id, "podium-year", "Podium ", "P3", "text-bg-info", archiveYear);
                 AddAchievementIfMissing(db, existing, row.User.Id, "podium-permanent", "Podium", "POD", "text-bg-info", null, isPermanent: true);
             }
+        }
+
+        if (includePodium)
+        {
+            BackfillPermanentPodiums(db, existing, affectedUserIds);
         }
     }
 
@@ -402,6 +478,32 @@ public class TimeEntryService
 
         db.UserAchievementHistories.Add(achievement);
         existing.Add(achievement);
+    }
+
+    private static void BackfillPermanentPodiums(
+        AppDbContext db,
+        List<UserAchievementHistory> existing,
+        List<int> affectedUserIds)
+    {
+        var podiumUsers = existing
+            .Where(x => affectedUserIds.Contains(x.UserId) && x.Kind == "podium-year")
+            .Select(x => x.UserId)
+            .Distinct()
+            .ToList();
+
+        foreach (var userId in podiumUsers)
+        {
+            AddAchievementIfMissing(
+                db,
+                existing,
+                userId,
+                "podium-permanent",
+                "Podium",
+                "POD",
+                "text-bg-info",
+                null,
+                isPermanent: true);
+        }
     }
 
     public async Task<int> AutoCheckoutStaleEntriesAsync()
