@@ -278,7 +278,7 @@
 
         foreach (var u in Users)
         {
-            var current = GetCurrentHours(u.Id);
+            var current = GetCurrentHours(u.Id)+u.BonusHours;
             var total = u.ArchivedHours + current;
 
             sb.AppendLine($"{Escape(u.Name)};{Escape(u.Email)};{Escape(u.SecretCode)};{u.Role};{u.ShareStats};{u.ArchivedHours:0.0};{current:0.0};{total:0.0}");
