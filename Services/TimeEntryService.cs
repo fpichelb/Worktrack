@@ -221,6 +221,7 @@ public class TimeEntryService
         // Optional: mark entries as archived ? Up to you
         foreach (var e in entries) e.IsArchived = true;
 
+        await MarkCompletedEventsAsArchivedAsync(Db);
         await Db.SaveChangesAsync();
         return total;
     }
@@ -258,6 +259,7 @@ public class TimeEntryService
             entry.IsArchived = true;
         }
 
+        await MarkCompletedEventsAsArchivedAsync(Db);
         await Db.SaveChangesAsync();
 
         return new ArchiveResult
@@ -270,6 +272,37 @@ public class TimeEntryService
     {
         public int TotalEntries { get; set; }
         public double TotalHours { get; set; }
+    }
+
+    private static async Task MarkCompletedEventsAsArchivedAsync(AppDbContext db)
+    {
+        var now = DateTime.UtcNow;
+        var eventIdsWithEntries = await db.TimeEntry
+            .Select(x => x.EventId)
+            .Distinct()
+            .ToListAsync();
+
+        if (eventIdsWithEntries.Count == 0)
+            return;
+
+        var events = await db.Events
+            .Where(e => eventIdsWithEntries.Contains(e.Id) && !e.IsArchived)
+            .ToListAsync();
+
+        foreach (var ev in events)
+        {
+            var allEntriesArchived = await db.TimeEntry
+                .Where(x => x.EventId == ev.Id)
+                .AllAsync(x => x.IsArchived);
+
+            var isPastEvent = (ev.EndTime ?? ev.StartTime) <= now;
+            if (!allEntriesArchived || !isPastEvent)
+                continue;
+
+            ev.IsArchived = true;
+            ev.IsActive = false;
+            ev.ArchivedAtUtc ??= now;
+        }
     }
 
     private async Task SnapshotAchievementsAsync(AppDbContext db, List<int>? onlyUserIds = null)

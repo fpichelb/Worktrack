@@ -1,20 +1,32 @@
-@page "/admin/events"
+﻿@page "/admin/events"
 @layout AdminLayout
 
 @using Microsoft.EntityFrameworkCore
 @inject EventService EService
+@inject TimeEntryService TEService
 @inject NavigationManager Nav
 @rendermode InteractiveServer
 
-
 <h2>Event-Verwaltung</h2>
+
+<div class="card">
+    <div class="d-flex flex-wrap gap-3 align-items-center justify-content-between">
+        <div>
+            <h3>Übersicht</h3>
+            <p class="text-muted mb-0">Aktive und archivierte Events sind jetzt getrennt. Archivierte Events bleiben mit ihren TimeEntries sichtbar.</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <span class="badge text-bg-success">Aktiv: @ActiveEvents.Count</span>
+            <span class="badge text-bg-secondary">Archiv: @ArchivedEvents.Count</span>
+        </div>
+    </div>
+</div>
 
 <div class="card">
     <h3>Neues Event anlegen</h3>
 
     <EditForm Model="@NewEvent" OnValidSubmit="@CreateEvent" FormName="CreateEvent">
         <DataAnnotationsValidator />
-
 
         <label>Name</label>
         <input @bind="@NewEvent.Name" />
@@ -43,78 +55,95 @@
         <label>Standardstunden (Auto-Checkout)</label>
         <input @bind="@NewEvent.DefaultHours" />
 
-
-
-
-
         <button type="submit" class="btn mt-4">Event speichern</button>
     </EditForm>
 </div>
 
 <div class="card">
-    <h3>Bestehende Events</h3>
+    <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between">
+        <h3 class="mb-0">Events</h3>
+        <div class="d-flex flex-wrap gap-2">
+            <button class="btn @(ShowArchivedOnly ? "btn-outline-secondary" : "btn-primary")" @onclick="() => ShowArchivedOnly = false">Aktive Events</button>
+            <button class="btn @(ShowArchivedOnly ? "btn-primary" : "btn-outline-secondary")" @onclick="() => ShowArchivedOnly = true">Archivierte Events</button>
+        </div>
+    </div>
 
-    @if (Events == null)
+    @if (FilteredEvents.Count == 0)
     {
-        <p>Lade Events…</p>
-    }
-    else if (Events.Count == 0)
-    {
-        <p>Keine Events vorhanden.</p>
+        <p class="mt-3">Keine Events in dieser Ansicht vorhanden.</p>
     }
     else
     {
-
-        <div class="table-responsive">
+        <div class="table-responsive mt-3">
             <table>
                 <thead>
                     <tr>
                         <th>Name</th>
                         <th>Ort</th>
-                        <th>EventQR-Code</th>
-                        <th>AutoMatch</th>
-                        <th>Aktiv</th>
+                        <th>Datum</th>
+                        <th>QR-Code</th>
+                        <th>Status</th>
                         <th class="text-right">Aktionen</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var e in Events)
+                    @foreach (var e in FilteredEvents)
                     {
                         <tr>
                             <td>
-                                <InputText @bind-value="e.Name" @bind-value:after="() => Save(e)" />
+                                <InputText @bind-Value="e.Name" @bind-Value:after="() => Save(e)" />
                             </td>
                             <td>@e.Location</td>
+                            <td>@e.StartTime.ToString("dd.MM.yyyy")</td>
                             <td>
-                                @if (QrCache.ContainsKey(e.Id))
+                                @if (QrCache.TryGetValue(e.Id, out var qr))
                                 {
-                                    <img src="@QrCache[e.Id]" style="width:80px; border:1px solid #ccc; padding:3px;" />
+                                    <img src="@qr" style="width:80px; border:1px solid #ccc; padding:3px;" />
+                                    <br />
+                                    <button class="btn btn-secondary btn-small mt-2" @onclick="() => ShowLargeQR(e.Id)">QR groß</button>
                                 }
-
-                                <br />
-                                <button class="btn btn-secondary btn-small" @onclick="() => ShowLargeQR(e.Id)">
-                                <a class="position-absolute " style="margin-top: -13px;margin-left:-35px; width:90px; height:70px;"href="/admin/events#QRCODE"></a>
-                                    QR groß
-                                </button>
                             </td>
                             <td>
-                                <InputCheckbox @bind-Value="e.AutoMatchUsers" @bind-Value:after="() => Save(e)" />
-                            </td>
-                            <td>@(e.IsActive ? "Ja" : "Nein")</td>
-                            <td class="text-right">
-                                <button class="btn secondary" style="margin:0.5rem;" @onclick="() => ToggleActive(e)">
-                                    @(e.IsActive ? "Deaktivieren" : "Aktivieren")
-                                </button>
-                                <button class="btn secondary" style="margin:0.5rem;" @onclick="() => SelectEvent(e)">
-                                <a class="position-absolute " style="width:90px; height:40px;"href="/admin/events#selectedEvent"></a>Details</button>
-                                <button class="btn btn-danger" style="margin:0.5rem;" @onclick="() => _confirmDelete=e.Id">Löschen</button>
-                                @if((_confirmDelete==e.Id)){
-                                <div class="position-absolute z-100 bg-light border rounded shadow p-4">
-                                <button class="btn btn-danger" style="margin:0.5rem;" @onclick="() => DeleteEvent(e)">Ja, Löschen</button>
-                                <button class="btn btn-secondary" style="margin:0.5rem;" @onclick="() => _confirmDelete=-1">abbrechen</button>
-                                </div>
+                                @if (e.IsArchived)
+                                {
+                                    <span class="badge text-bg-secondary">Archiviert</span>
+                                    @if (e.ArchivedAtUtc.HasValue)
+                                    {
+                                        <div class="small text-muted mt-1">@e.ArchivedAtUtc.Value.ToLocalTime().ToString("dd.MM.yyyy")</div>
+                                    }
                                 }
-                                
+                                else if (e.IsActive)
+                                {
+                                    <span class="badge text-bg-success">Aktiv</span>
+                                }
+                                else
+                                {
+                                    <span class="badge text-bg-warning">Inaktiv</span>
+                                }
+                            </td>
+                            <td class="text-right">
+                                <button class="btn btn-outline-secondary" style="margin:0 0.6rem 0 0;" @onclick="() => SelectEvent(e)">Details</button>
+                                <div class="admin-event-action-grid">
+                                    <button class="btn btn-outline-info admin-event-action-btn" title="Erneut planen" @onclick="() => StartReplan(e)">↻</button>
+                                    @if (e.IsArchived)
+                                    {
+                                        <button class="btn btn-outline-success admin-event-action-btn" title="Wiederherstellen" @onclick="() => RestoreEvent(e)">⟲</button>
+                                        <button class="btn btn-outline-dark admin-event-action-btn" title="Archiviert" disabled>🗂</button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-outline-warning admin-event-action-btn" title="@(e.IsActive ? "Deaktivieren" : "Aktivieren")" @onclick="() => ToggleActive(e)">⚡</button>
+                                        <button class="btn btn-outline-dark admin-event-action-btn" title="Archivieren" @onclick="() => ArchiveEvent(e)">🗂</button>
+                                    }
+                                    <button class="btn btn-danger admin-event-action-btn" title="Löschen" @onclick="() => _confirmDelete = e.Id">✕</button>
+                                </div>
+                                @if (_confirmDelete == e.Id)
+                                {
+                                    <div class="position-absolute z-100 bg-light border rounded shadow p-4">
+                                        <button class="btn btn-danger" style="margin:0.5rem;" @onclick="() => DeleteEvent(e)">Ja, Löschen</button>
+                                        <button class="btn btn-secondary" style="margin:0.5rem;" @onclick="() => _confirmDelete = -1">Abbrechen</button>
+                                    </div>
+                                }
                             </td>
                         </tr>
                     }
@@ -123,51 +152,87 @@
         </div>
     }
 </div>
-@if (SelectedEvent != null)
+
+@if (ReplanSource is not null)
 {
-    <h3 class="mt-4" id="selectedEvent">Timeentries für @SelectedEvent.Name</h3>
-
-    @if (!EventEntries.Any())
-    {
-        <p>Keine Einträge vorhanden.</p>
-    }
-    else
-    {
-
-        <div class="table-responsive">
-            <table class="stats-table">
-                <thead>
-                    <tr>
-                        <th>Zugewiesen</th>
-                        <th>Eingegeben</th>
-                        <th>Check-In</th>
-                        <th>Check-Out</th>
-                        <th>Dauer (h)</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var e in EventEntries)
-                    {
-                        <tr>
-                            <td>@(e.UserName ?? "")</td>
-                            <td>@(e.NameEntered)</td>
-                            <td>@e.CheckIn?.ToString("g")</td>
-                            <td>@e.CheckOut?.ToString("g")</td>
-                            <td>@((e.DurationHours ?? 0).ToString("0.0"))</td>
-                            <td>@e.Status</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+    <div class="card">
+        <h3>Event erneut planen</h3>
+        <p><strong>@ReplanSource.Name</strong> wird als neues Event angelegt. Das alte Event bleibt mit seinen TimeEntries in der Historie erhalten.</p>
+        <div class="event-grid">
+            <div>
+                <label>Neues Datum</label>
+                <input type="date" class="form-control" @bind="ReplanDate" />
+            </div>
+            <div class="d-flex align-items-end gap-2">
+                <button class="btn btn-primary" @onclick="ReplanSelectedEvent">Neues Event anlegen</button>
+                <button class="btn btn-secondary" @onclick="CancelReplan">Abbrechen</button>
+            </div>
         </div>
-    }
+    </div>
 }
 
-<!-- GROßES QR POPUP -->
+@if (SelectedEvent != null)
+{
+    <div class="card" id="selectedEvent">
+        <div class="d-flex flex-wrap gap-3 align-items-start justify-content-between">
+            <div>
+                <h3>@SelectedEvent.Name</h3>
+                <p class="mb-1"><strong>Ort:</strong> @SelectedEvent.Location</p>
+                <p class="mb-1"><strong>Datum:</strong> @SelectedEvent.StartTime.ToString("dd.MM.yyyy")</p>
+                <p class="mb-0"><strong>Status:</strong> @(SelectedEvent.IsArchived ? "Archiviert" : SelectedEvent.IsActive ? "Aktiv" : "Inaktiv")</p>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+                <span class="badge text-bg-light">Einträge: @EventEntries.Count</span>
+                <span class="badge text-bg-light">Archivierte Einträge: @EventEntries.Count(x => x.IsArchived)</span>
+                <span class="badge text-bg-light">Offene Einträge: @EventEntries.Count(x => x.CheckOut is null)</span>
+                <span class="badge text-bg-light">Stunden: @EventEntries.Sum(x => x.DurationHours ?? 0).ToString("0.0")</span>
+            </div>
+        </div>
+
+        @if (!EventEntries.Any())
+        {
+            <p class="mt-3">Keine Einträge vorhanden.</p>
+        }
+        else
+        {
+            <div class="table-responsive mt-3">
+                <table class="stats-table">
+                    <thead>
+                        <tr>
+                            <th>Zugewiesen</th>
+                            <th>Eingegeben</th>
+                            <th>Aufgabe</th>
+                            <th>Check-In</th>
+                            <th>Check-Out</th>
+                            <th>Dauer (h)</th>
+                            <th>Status</th>
+                            <th>Archiviert</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var e in EventEntries)
+                        {
+                            <tr>
+                                <td>@(e.UserName ?? "")</td>
+                                <td>@e.NameEntered</td>
+                                <td>@(e.Task ?? "")</td>
+                                <td>@e.CheckIn?.ToString("g")</td>
+                                <td>@e.CheckOut?.ToString("g")</td>
+                                <td>@((e.DurationHours ?? 0).ToString("0.0"))</td>
+                                <td>@e.Status</td>
+                                <td>@(e.IsArchived ? "Ja" : "Nein")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+}
+
 @if (LargeQrBase64 != null)
 {
-    <div id="QRCODE"class="qr-backdrop" @onclick="CloseLargeQR">
+    <div id="QRCODE" class="qr-backdrop" @onclick="CloseLargeQR">
         <div class="qr-popup" @onclick:stopPropagation>
             <h3>QR-Code Event</h3>
             <img src="@LargeQrBase64" style="width:300px; border:2px solid #333; padding:10px;" />
@@ -188,15 +253,28 @@
     private List<Event> Events = new();
     private Event NewEvent = new();
     private Dictionary<int, string> QrCache = new();
-    private string? LargeQrBase64 = null;
-    private Event? SelectedEvent = null;
+    private string? LargeQrBase64;
+    private Event? SelectedEvent;
+    private Event? ReplanSource;
     private List<TimeEntry> EventEntries = new();
-    private int _confirmDelete=-1;
+    private DateTime ReplanDate = DateTime.Today;
+    private bool ShowArchivedOnly;
+    private int _confirmDelete = -1;
+
+    private List<Event> ActiveEvents => Events.Where(e => !e.IsArchived).OrderByDescending(e => e.StartTime).ToList();
+    private List<Event> ArchivedEvents => Events.Where(e => e.IsArchived).OrderByDescending(e => e.ArchivedAtUtc ?? e.StartTime).ToList();
+    private List<Event> FilteredEvents => ShowArchivedOnly ? ArchivedEvents : ActiveEvents;
 
     protected override async Task OnInitializedAsync()
     {
         NewEvent.StartTime = DateTime.Today;
+        await LoadEventsAsync();
+    }
+
+    private async Task LoadEventsAsync()
+    {
         Events = await EService.GetAllEventsAsync();
+        QrCache.Clear();
 
         foreach (var e in Events)
         {
@@ -204,52 +282,112 @@
             QrCache[e.Id] = await QrHelper.GeneratePngBase64(url);
         }
     }
+
     private async Task Save(Event e)
     {
         await EService.UpdateEventAsync(e);
-        Toasts.ShowSuccess("Event gespeichert",$"Event {e.Name} wurde gespeichert");
+        Toasts.ShowSuccess("Event gespeichert", $"Event {e.Name} wurde gespeichert");
     }
 
     private async Task SelectEvent(Event e)
-    {   
-        SelectedEvent=e;
+    {
+        SelectedEvent = e;
         EventEntries = await TEService.GetEntriesForEventAsync(e.Id);
-        Toasts.ShowInfo("Daten geladen",$"Die Teilnahmen an {e.Name} wurden erfolgreich geladen und unten angezeigt");
+        Toasts.ShowInfo("Daten geladen", $"Die Teilnahmen an {e.Name} wurden erfolgreich geladen und unten angezeigt");
         StateHasChanged();
     }
 
     private async Task CreateEvent()
     {
-        if (string.IsNullOrWhiteSpace(NewEvent.Name) || string.IsNullOrWhiteSpace(NewEvent.Location)){
-            Toasts.ShowError("Event erstellung","Bitte geben sie einen Namen und einen Ort an");
+        if (string.IsNullOrWhiteSpace(NewEvent.Name) || string.IsNullOrWhiteSpace(NewEvent.Location))
+        {
+            Toasts.ShowError("Event-Erstellung", "Bitte geben Sie einen Namen und einen Ort an");
             return;
-            }
-
+        }
 
         NewEvent.IsActive = true;
+        NewEvent.IsArchived = false;
+        NewEvent.ArchivedAtUtc = null;
 
         var addedE = await EService.CreateEventAsync(NewEvent);
-        Events.Insert(0,addedE);
+        Events.Insert(0, addedE);
+        var url = $"{Nav.BaseUri.TrimEnd('/')}/event?event={addedE.Id}";
+        QrCache[addedE.Id] = await QrHelper.GeneratePngBase64(url);
+
+        Toasts.ShowSuccess("Event erstellt", $"Event {NewEvent.Name} wurde erstellt.");
+        NewEvent = new Event { StartTime = DateTime.Today, DefaultHours = 2, AutoMatchUsers = true };
         StateHasChanged();
-        Toasts.ShowSuccess("Event erstellt",$"Event {NewEvent.Name} wurde erstellt.");
-        NewEvent = new();
-        NewEvent.StartTime=DateTime.Today;
     }
 
     private async Task ToggleActive(Event e)
     {
         e.IsActive = !e.IsActive;
         await EService.UpdateEventAsync(e);
-        var mode=e.IsActive?"aktiv":"nicht aktiv"; 
-        Toasts.ShowInfo("Event verändert",$"{e.Name} ist nun {mode}");
+        Toasts.ShowInfo("Event verändert", $"{e.Name} ist nun {(e.IsActive ? "aktiv" : "nicht aktiv")}");
+    }
+
+    private async Task ArchiveEvent(Event e)
+    {
+        await EService.ArchiveEventAsync(e.Id);
+        e.IsArchived = true;
+        e.IsActive = false;
+        e.ArchivedAtUtc ??= DateTime.UtcNow;
+        if (SelectedEvent?.Id == e.Id)
+            SelectedEvent = e;
+        Toasts.ShowInfo("Event archiviert", $"{e.Name} wurde archiviert und bleibt mit seinen TimeEntries sichtbar.");
+    }
+
+    private async Task RestoreEvent(Event e)
+    {
+        await EService.RestoreEventAsync(e.Id);
+        e.IsArchived = false;
+        e.ArchivedAtUtc = null;
+        if (SelectedEvent?.Id == e.Id)
+            SelectedEvent = e;
+        Toasts.ShowInfo("Event wiederhergestellt", $"{e.Name} ist wieder in der aktiven Eventliste.");
+    }
+
+    private void StartReplan(Event e)
+    {
+        ReplanSource = e;
+        ReplanDate = DateTime.Today;
+    }
+
+    private void CancelReplan()
+    {
+        ReplanSource = null;
+    }
+
+    private async Task ReplanSelectedEvent()
+    {
+        if (ReplanSource is null)
+            return;
+
+        var clone = await EService.ReplanEventAsync(ReplanSource.Id, ReplanDate.Date);
+        if (clone is null)
+            return;
+
+        Events.Insert(0, clone);
+        var url = $"{Nav.BaseUri.TrimEnd('/')}/event?event={clone.Id}";
+        QrCache[clone.Id] = await QrHelper.GeneratePngBase64(url);
+        ReplanSource = null;
+        ShowArchivedOnly = false;
+        Toasts.ShowSuccess("Event erneut geplant", $"Für {clone.Name} wurde ein neuer Termin angelegt.");
     }
 
     private async Task DeleteEvent(Event e)
     {
-
         await EService.DeleteEventAsync(e.Id);
-        Events?.Remove(e);
-        Toasts.ShowInfo("Event Gelöscht",$"{e.Name} wurde gelöscht.");
+        Events.Remove(e);
+        QrCache.Remove(e.Id);
+        if (SelectedEvent?.Id == e.Id)
+        {
+            SelectedEvent = null;
+            EventEntries.Clear();
+        }
+
+        _confirmDelete = -1;
+        Toasts.ShowInfo("Event gelöscht", $"{e.Name} wurde gelöscht.");
     }
 
     private void ShowLargeQR(int eventId)

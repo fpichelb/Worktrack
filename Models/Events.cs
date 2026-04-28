@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace Worktrack.Models;
 
@@ -17,6 +17,10 @@ public class Event
 
     public bool IsActive { get; set; } = true;
 
+    public bool IsArchived { get; set; } = false;
+
+    public DateTime? ArchivedAtUtc { get; set; }
+
     /// <summary>
     /// Wenn true, werden neue Namen automatisch Benutzern zugeordnet
     /// </summary>
@@ -28,7 +32,7 @@ public class Event
     public bool RequireTask { get; set; } = false;
 
     /// <summary>
-    /// Standardstunden f�r Auto-Checkout (z. B. nach 2h, falls kein manueller Checkout erfolgt)
+    /// Standardstunden für Auto-Checkout (z. B. nach 2h, falls kein manueller Checkout erfolgt)
     /// </summary>
     [Range(0.5, 24)]
     public double DefaultHours { get; set; } = 2;

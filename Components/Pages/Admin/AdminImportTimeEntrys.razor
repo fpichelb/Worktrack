@@ -121,7 +121,10 @@
 
     protected override async Task OnInitializedAsync()
     {
-        Events = await Db.Events.OrderBy(e => e.Name).ToListAsync();
+        Events = await Db.Events
+            .Where(e => !e.IsArchived)
+            .OrderBy(e => e.Name)
+            .ToListAsync();
         Users = await Db.Users.ToListAsync();
         await getLastImport();
     }

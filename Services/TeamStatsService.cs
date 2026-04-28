@@ -42,9 +42,13 @@ public class TeamStatsService
                         !e.IsArchived &&
                         allowedUserIds.Contains(e.UserId.Value))
             .Include(e => e.Event)
+            .Where(e => e.Event != null && !e.Event.IsArchived)
             .ToListAsync(ct);
 
-        var seasonGroups = await _seasonService.BuildSeasonGroupsAsync();
+        var seasonGroups = (await _seasonService.BuildSeasonGroupsAsync())
+            .ToDictionary(
+                pair => pair.Key,
+                pair => pair.Value.Where(e => !e.IsArchived).ToList());
         var achievementHistory = await _userStatsService.GetAchievementHistoryMapAsync(users.Select(x => x.Id), ct);
 
         var vm = new TeamStatsVm

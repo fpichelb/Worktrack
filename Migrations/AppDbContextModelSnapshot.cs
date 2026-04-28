@@ -260,10 +260,16 @@ namespace Worktrack.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("varchar(500)");
 
+                    b.Property<DateTime?>("ArchivedAtUtc")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<DateTime?>("EndTime")
                         .HasColumnType("datetime(6)");
 
                     b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsArchived")
                         .HasColumnType("tinyint(1)");
 
                     b.Property<string>("Location")
