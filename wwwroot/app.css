@@ -71,8 +71,8 @@ body {
   right: 0px;
   z-index: 1050;
   background: #101010ca;
-  height:37px;
-  width:41px;
+  height:60px;
+  width:60px;
 }
 /* Modal view */
 .perspective.modalview {
@@ -1220,9 +1220,6 @@ input[type="date"] {
   }
 }
 /* Desktop: kein Offcanvas/Zoom */
-@media (min-width: 700px){
-  .menu-open .page-content{ transform:none; filter:none; }
-}
 
 @media (max-width: 700px) {
   .multi-row-4,
@@ -1237,6 +1234,7 @@ input[type="date"] {
 }
 
 @media (max-width: 700px) {
+  .menu-open .page-content{ transform:none; filter:none; }
   .training-month-grid {
     min-width: 700px;
     gap: 0.25rem;

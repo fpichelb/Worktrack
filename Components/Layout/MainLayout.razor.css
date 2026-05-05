@@ -13,8 +13,12 @@ main {
     position: absolute;
     font-size: 2em;
     top: 50%;
-    left: 50%;
+    left: 55%;
     transform: translateY(-50%);
+}
+
+.menu-button{
+    font-size: 25;
 }
 
 .menu-overlay { 
@@ -37,11 +41,17 @@ main {
         &.active {
             anchor-name: --active;
         }
-        &:hover:before {
-            anchor-name: --nav;
-        }  
     }
 }
+
+@media (hover: hover) and (pointer: fine) {
+    .menu-overlay a {
+        &:hover:before {
+            anchor-name: --nav;
+        }
+    }
+}
+
 .bubble {
   top: anchor(top);
   right: anchor(right);
@@ -96,7 +106,19 @@ main {
         text-overflow: ellipsis;
     }
 
-@media (max-width: 640.98px) {
+@media (max-width: 470px) {
+    .offcanvas-menu-wrapper{
+        left: 40%;
+    }
+    
+}
+@media (max-width: 350px) {
+    .offcanvas-menu-wrapper{
+      font-size: 1.5em;
+    }
+  }
+
+@media (min-width: 641px) {
     .top-row {
         justify-content: space-between;
     }
@@ -104,9 +126,6 @@ main {
     .top-row ::deep a, .top-row ::deep .btn-link {
         margin-left: 0;
     }
-}
-
-@media (min-width: 641px) {
     .page {
         flex-direction: row;
     }
