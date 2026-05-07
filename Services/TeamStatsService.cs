@@ -27,20 +27,18 @@ public class TeamStatsService
 
         var users = await db.Users
             .AsNoTracking()
-            .Where(u => u.ShareStats)
             .OrderBy(u => u.Name)
             .ToListAsync(ct);
 
-        var allowedUserIds = users.Select(x => x.Id).ToHashSet();
-        var userNames = users.ToDictionary(x => x.Id, x => x.Name);
+        var allowedUserIds = users.Where(u => u.ShareStats).Select(x => x.Id).ToHashSet();
+        var userNames = users.Where(u => u.ShareStats).ToDictionary(x => x.Id, x => x.Name);
 
         var entries = await db.TimeEntry
             .AsNoTracking()
             .Where(e => e.CheckIn != null &&
                         e.CheckOut != null &&
                         e.UserId != null &&
-                        !e.IsArchived &&
-                        allowedUserIds.Contains(e.UserId.Value))
+                        !e.IsArchived )
             .Include(e => e.Event)
             .Where(e => e.Event != null && !e.Event.IsArchived)
             .ToListAsync(ct);
@@ -53,7 +51,7 @@ public class TeamStatsService
 
         var vm = new TeamStatsVm
         {
-            GlobalStats = BuildGlobalStats(users, entries, seasonGroups, achievementHistory),
+            GlobalStats = BuildGlobalStats(users, entries, seasonGroups, achievementHistory,allowedUserIds),
             SeasonGroups = BuildSeasonGroups(seasonGroups, entries, userNames)
         };
 
@@ -64,25 +62,29 @@ public class TeamStatsService
         List<User> users,
         List<TimeEntry> entries,
         Dictionary<Season, List<Event>> seasonGroups,
-        Dictionary<int, List<UserArchivedAchievementVm>> achievementHistory)
+        Dictionary<int, List<UserArchivedAchievementVm>> achievementHistory,
+        HashSet<int> allowedUserIds)
     {
         var result = new List<TeamGlobalUserStatsVm>();
 
         foreach (var user in users)
         {
-            var userEntries = entries.Where(e => e.UserId == user.Id).ToList();
-            var totalHours = userEntries.Sum(e => e.DurationHours ?? 0) + user.BonusHours;
-            var eventsVisited = userEntries.Select(e => e.EventId).Distinct().Count();
-
-            result.Add(new TeamGlobalUserStatsVm
+            if (allowedUserIds.Contains(user.Id))
             {
-                Id = user.Id,
-                Name = user.Name,
-                TotalHours = totalHours,
-                EventsVisited = eventsVisited,
-                Bonus = user.BonusHours,
-                Achievements = BuildAchievements(user, totalHours, eventsVisited, seasonGroups, entries, achievementHistory)
-            });
+                var userEntries = entries.Where(e => e.UserId == user.Id).ToList();
+                var totalHours = userEntries.Sum(e => e.DurationHours ?? 0) + user.BonusHours;
+                var eventsVisited = userEntries.Select(e => e.EventId).Distinct().Count();
+
+                result.Add(new TeamGlobalUserStatsVm
+                {
+                    Id = user.Id,
+                    Name = user.Name,
+                    TotalHours = totalHours,
+                    EventsVisited = eventsVisited,
+                    Bonus = user.BonusHours,
+                    Achievements = BuildAchievements(user, totalHours, eventsVisited, seasonGroups, entries, achievementHistory)
+                });
+            }
         }
 
         return result
@@ -159,6 +161,22 @@ public class TeamStatsService
         if (seasonHero)
             list.Add(new() { Shown = "🌸🍂🚀❄️☀️", Tooltip = "Season Hero", ColorCss = "text-bg-secondary" });
 
+        var isCurrentlyOnAnySeasonPodium = seasonGroups.Any(pair =>
+        {
+            if (!pair.Value.Any())
+            {
+                return false;
+            }
+
+            var podium = _seasonService.BuildSeasonStats(pair.Key, pair.Value, entries)
+                .Take(3)
+                .ToList();
+
+            return podium.Any(x => x.UserId == user.Id);
+        });
+
+        if (isCurrentlyOnAnySeasonPodium)
+            list.Add(new() { Shown = "🥈🏆🥉", Tooltip = "Podium", ColorCss = "text-bg-warning" });
         if (achievementHistory.TryGetValue(user.Id, out var archived))
         {
             foreach (var item in archived.Where(x => x.IsPermanent && x.Kind == "podium-permanent"))
@@ -196,3 +214,5 @@ public class TeamStatsService
         return item.ArchiveYear.HasValue ? $"{baseBadge} {item.ArchiveYear.Value}" : baseBadge;
     }
 }
+
+

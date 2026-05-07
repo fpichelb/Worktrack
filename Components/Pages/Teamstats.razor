@@ -53,7 +53,9 @@
                         @foreach (var item in TeamAchievementLegend)
                         {
                             <div class="achievement-legend__item">
+                                <div style="width:110px;">
                                 <span class="badge text-bg-secondary achievement-legend__badge">@item.Icon</span>
+                                </div>
                                 <span>@item.Label</span>
                             </div>
                         }
@@ -134,7 +136,8 @@
         ("🌟", "50+ Stunden: mindestens 50 Stunden im aktuellen Vergleich."),
         ("💯", "100+ Stunden: mindestens 100 Stunden im aktuellen Vergleich."),
         ("🌸🍂🚀❄️☀️", "Season Hero: Teilnahme über alle berücksichtigten Saisonbereiche hinweg."),
-        ("🥈🏆🥉", "Permanentes Podium: irgendwann beim Archivieren Top 3 mit mindestens 15 Stunden erreicht.")
+        ("🌿🥈🏆🥉🌿", "Permanentes Podium: irgendwann beim Archivieren Top 3 mit mindestens 9 Stunden erreicht."),
+        ("🥈🏆🥉", "Podium: Aktuelle Top 3")
     ];
 
     protected override async Task OnParametersSetAsync()

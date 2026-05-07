@@ -475,7 +475,7 @@ tr:hover {
 }
 
 .achievement-legend__item {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 0.35rem;
   font-size: 0.9rem;
