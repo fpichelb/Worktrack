@@ -204,6 +204,18 @@ public class TimeEntryService
         await db.SaveChangesAsync();
         return true;
     }
+    public async Task<bool> EntryToPendingAsync(int entryId)
+    {
+        await using var db = await _factory.CreateDbContextAsync();
+        var entry = await db.TimeEntry.FindAsync(entryId);
+        if (entry is null )
+            return false;
+
+        entry.Status = "pending_assignment";
+
+        await db.SaveChangesAsync();
+        return true;
+    }
     public async Task<bool> IsDuplicate(TimeEntry entry)
     {
         await using var Db = await _factory.CreateDbContextAsync();

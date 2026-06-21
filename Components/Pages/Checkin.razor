@@ -42,6 +42,15 @@ else
                 </div>
             }
 
+            <div class="form-group">
+                <label>Ankunft</label>
+                <select @bind="SelectedCheckInOffsetMinutes" class="form-control">
+                    <option value="0">Jetzt</option>
+                    <option value="15">Vor 15 Minuten</option>
+                    <option value="30">Vor 30 Minuten</option>
+                </select>
+            </div>
+
             <button class="btn btn-primary" @onclick="SubmitCheckIn">Check In</button>
         </div>
     }
@@ -80,6 +89,7 @@ else
 
     private string? Name;
     private string? Task;
+    private int SelectedCheckInOffsetMinutes;
 
     private LocalSession? ActiveSession;
 
@@ -127,7 +137,7 @@ else
             Toasts.ShowError("Check-In fehlgeschlagen", "Bitte Aufgabe eingeben.");
             return;
         }
-        var tempCheckin = DateTime.UtcNow;
+        var tempCheckin = DateTime.UtcNow.AddMinutes(-SelectedCheckInOffsetMinutes);
         var entry = new TimeEntry
         {
             EventId = Event.Id,

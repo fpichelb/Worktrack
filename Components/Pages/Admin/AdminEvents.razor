@@ -298,6 +298,7 @@
                                     {
                                         <button class="btn btn-outline-secondary btn-sm" title="Eintrag entarchivieren" @onclick="() => UnarchiveEntry(e)">⟲</button>
                                     }
+                                    <button class="btn btn-outline-danger btn-sm" title="Eintrag Pending" @onclick="() => EntryToPending(e)">🅿️</button>
                                 </td>
                             </tr>
                         }
@@ -394,6 +395,16 @@
         }
 
         Toasts.ShowSuccess("Eintrag entarchiviert", "Der archivierte TimeEntry wurde wieder aktiviert.");
+    }
+    
+    private async Task EntryToPending(TimeEntry entry)
+    {
+        if (!await TEService.EntryToPendingAsync(entry.Id))
+            return;
+
+        entry.Status = "pending_assignment";
+
+        Toasts.ShowSuccess("Eintrag zu Pending", "Der TimeEntry wurde wieder nach pending verschoben.");
     }
 
     private async Task CreateEvent()
