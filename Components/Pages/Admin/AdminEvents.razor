@@ -403,6 +403,9 @@
             return;
 
         entry.Status = "pending_assignment";
+        entry.UserId = null;
+        entry.UserName = null;
+        entry.MatchedUserName = null;
 
         Toasts.ShowSuccess("Eintrag zu Pending", "Der TimeEntry wurde wieder nach pending verschoben.");
     }

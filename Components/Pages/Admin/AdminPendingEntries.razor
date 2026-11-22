@@ -17,6 +17,7 @@
     <div class="col-auto d-flex">
     <label for="showmanuell" class="form-check form-switch mx-0"><input type="checkbox" class="form-check-input" id="showmanuell" @bind="_Showmanuell">Manuelle checkout</label>
     <label for="showAllUsers" class="form-check form-switch mx-5"><input type="checkbox" class="form-check-input" id="showAllUsers" @bind="_ShowAllUser">alle</label>
+    <label for="showEventEditors" class="form-check form-switch mx-0"><input type="checkbox" class="form-check-input" id="showEventEditors" @bind="_showEventEditors">Events ändern</label>
     </div>
     </div>
     @if (Pending == null)
@@ -44,9 +45,25 @@
             <tbody>
                 @foreach (var e in Pending)
                 {
-                    <tr>
+                    <tr @key="e.Id">
                         <td>@e.NameEntered</td>
-                        <td>@e.Event?.Name</td>
+                        <td>
+                            @e.Event?.Name
+                            @if (_showEventEditors)
+                            {
+                                <select class="form-select form-select-sm" aria-label="Event auswählen" value="@e.EventId"
+                                        @onchange="args => ChangeEventAsync(e, args.Value?.ToString())">
+                                    @if (e.Event?.IsArchived == true)
+                                    {
+                                        <option value="@e.EventId">@e.Event.Name (archiviert)</option>
+                                    }
+                                    @foreach (var ev in AvailableEvents)
+                                    {
+                                        <option value="@ev.Id">@ev.Name (@ev.StartTime.ToString("dd.MM.yyyy"))</option>
+                                    }
+                                </select>
+                            }
+                        </td>
                         <td>@(string.IsNullOrEmpty(e.Task) ? "-" : e.Task)</td>
                         <td>@e.CheckIn?.ToLocalTime()</td>
                         <td> @(e.CheckOut.HasValue? e.CheckOut.Value.ToLocalTime().ToString() : "-")
@@ -91,7 +108,9 @@
 @code {
     private List<TimeEntry>? Pending;
     private List<User> Users = new();
+    private List<Event> AvailableEvents = new();
     private bool _ShowAllUser=false;
+    private bool _showEventEditors;
     private int _confirmDelete=0;
     private bool _Showmanuell=false;
     Dictionary<int,bool> UnregEnabled=new();
@@ -110,6 +129,11 @@
             {
                 UnregEnabled[e.Id] = false;
             }
+            AvailableEvents = await Db.Events
+                .Where(e => !e.IsArchived)
+                .OrderByDescending(e => e.StartTime)
+                .ThenBy(e => e.Name)
+                .ToListAsync();
             Users = await UService.GetAllAsync();
         }
     }
@@ -117,6 +141,20 @@
     private List<User> GetSortedUsersForEntry(TimeEntry entry, int Elements=10)
     {
         return UService.SortUser(Users,entry.NameEntered,Elements);
+    }
+
+    private async Task ChangeEventAsync(TimeEntry entry, string? value)
+    {
+        if (!int.TryParse(value, out var eventId) || eventId == entry.EventId)
+            return;
+
+        var selectedEvent = AvailableEvents.FirstOrDefault(e => e.Id == eventId);
+        if (selectedEvent is null)
+            return;
+
+        entry.Event = selectedEvent;
+        entry.EventId = eventId;
+        await Db.SaveChangesAsync();
     }
 
     private async Task AssignUser(TimeEntry entry, string? value)

@@ -212,6 +212,9 @@ public class TimeEntryService
             return false;
 
         entry.Status = "pending_assignment";
+        entry.UserId = null;
+        entry.UserName = null;
+        entry.MatchedUserName = null;
 
         await db.SaveChangesAsync();
         return true;
